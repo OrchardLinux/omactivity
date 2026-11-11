@@ -1,0 +1,59 @@
+Name:	sshd-session
+Umask:	0022
+State:	S (sleeping)
+Tgid:	1272
+Ngid:	0
+Pid:	1272
+PPid:	1269
+TracerPid:	0
+Uid:	501	501	501	501
+Gid:	1000	1000	1000	1000
+FDSize:	64
+Groups:	4 10 16 190 1000 
+NStgid:	1272
+NSpid:	1272
+NSpgid:	1269
+NSsid:	1269
+Kthread:	0
+VmPeak:	   21488 kB
+VmSize:	   21488 kB
+VmLck:	       0 kB
+VmPin:	       0 kB
+VmHWM:	    8996 kB
+VmRSS:	    8996 kB
+RssAnon:	    3888 kB
+RssFile:	    5108 kB
+RssShmem:	       0 kB
+VmData:	    3232 kB
+VmStk:	     132 kB
+VmExe:	     816 kB
+VmLib:	   12448 kB
+VmPTE:	      84 kB
+VmSwap:	       0 kB
+HugetlbPages:	       0 kB
+CoreDumping:	0
+THP_enabled:	1
+untag_mask:	0xffffffffffffff
+Threads:	1
+SigQ:	0/63753
+SigPnd:	0000000000000000
+ShdPnd:	0000000000000000
+SigBlk:	0000000000000000
+SigIgn:	0000000000001000
+SigCgt:	0000000000010000
+CapInh:	0000000000000000
+CapPrm:	0000000000000000
+CapEff:	0000000000000000
+CapBnd:	000001ffffffffff
+CapAmb:	0000000000000000
+NoNewPrivs:	0
+Seccomp:	0
+Seccomp_filters:	0
+Speculation_Store_Bypass:	vulnerable
+SpeculationIndirectBranch:	unknown
+Cpus_allowed:	3ff
+Cpus_allowed_list:	0-9
+Mems_allowed:	00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000001
+Mems_allowed_list:	0
+voluntary_ctxt_switches:	8
+nonvoluntary_ctxt_switches:	0

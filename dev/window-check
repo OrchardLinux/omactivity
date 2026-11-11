@@ -1,0 +1,48 @@
+#!/bin/sh
+# Checks Quit on an app with a window against a real compositor: a headless
+# labwc, a Qt window in an app scope of its own, and Omactivity asking the
+# compositor to close it (so the app gets to say "save changes?") rather
+# than signalling it.
+# Needs a writable cgroup tree and installs labwc into the container:
+#   podman run --rm -i --systemd=always -v "$PWD:/src" -w /src localhost/omactivity-dev dev/window-check
+set -eu
+pacman -Sy --noconfirm --needed labwc >/dev/null 2>&1
+export XDG_RUNTIME_DIR=/tmp/xdg-runtime HOME=/tmp/home
+mkdir -p -m 700 "$XDG_RUNTIME_DIR" "$HOME"
+WLR_BACKENDS=headless WLR_RENDERER=pixman WLR_LIBINPUT_NO_DEVICES=1 labwc >/tmp/labwc.log 2>&1 &
+labwc=$!
+for _ in 1 2 3 4 5 6 7 8 9 10; do [ -S "$XDG_RUNTIME_DIR/wayland-0" ] && break; sleep 0.5; done
+[ -S "$XDG_RUNTIME_DIR/wayland-0" ] || { echo "labwc did not start"; cat /tmp/labwc.log; exit 1; }
+export WAYLAND_DISPLAY=wayland-0 QT_QPA_PLATFORM=wayland QT_QUICK_BACKEND=software QT_FORCE_STDERR_LOGGING=1
+
+cat > /tmp/victim.qml <<'QML'
+import QtQuick
+import QtQuick.Window
+Window {
+    visible: true; width: 300; height: 200
+    onClosing: console.log("VICTIM: the compositor asked this window to close")
+}
+QML
+/usr/lib/qt6/bin/qml /tmp/victim.qml >/tmp/victim.log 2>&1 &
+victim=$!
+# Its app scope, as a launcher would have made it. Qt gives the window the
+# app id org.qt-project.qml; systemd writes the dash in a unit name as \x2d.
+scope='/sys/fs/cgroup/user@0.service/app.slice/app-org.qt\x2dproject.qml@1.scope'
+mkdir -p "$scope"
+echo $victim > "$scope/cgroup.procs"
+sleep 1.5
+
+/src/build/omactivity --show "quit:org.qt-project.qml" >/tmp/app.log 2>&1 &
+app=$!
+sleep 3
+result=0
+if kill -0 $victim 2>/dev/null; then
+    echo "FAIL: the window's process is still running"; result=1
+elif grep -q "asked this window to close" /tmp/victim.log; then
+    echo "PASS: the app was closed through the compositor (it saw the close request)"
+else
+    echo "FAIL: the process ended without a close request (signalled?)"; result=1
+fi
+cat /tmp/victim.log /tmp/app.log | grep -v "^$" | head -10
+kill $app $labwc 2>/dev/null || true
+exit $result

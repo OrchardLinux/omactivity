@@ -1,0 +1,23 @@
+<RCC>
+    <qresource prefix="/">
+        <file>qml/BarGraph.qml</file>
+        <file>qml/BottomTabs.qml</file>
+        <file>qml/Btn.qml</file>
+        <file>qml/Footer.qml</file>
+        <file>qml/Icon.qml</file>
+        <file>qml/InspectPanel.qml</file>
+        <file>qml/LineGraph.qml</file>
+        <file>qml/Main.qml</file>
+        <file>qml/MenuRow.qml</file>
+        <file>qml/ProcessTable.qml</file>
+        <file>qml/SearchField.qml</file>
+        <file>qml/Section.qml</file>
+        <file>qml/Segmented.qml</file>
+        <file>qml/Sheet.qml</file>
+        <file>qml/StatRow.qml</file>
+        <file>qml/T.qml</file>
+        <file>qml/Ui.qml</file>
+        <file>qml/qmldir</file>
+        <file>data/protected.conf</file>
+    </qresource>
+</RCC>

@@ -1,0 +1,47 @@
+#!/bin/bash
+# Builds the Omactivity package inside an Arch Linux ARM container and
+# leaves it, with its checksum, in dist/. The same script runs in CI and on
+# a developer's machine:
+#
+#   podman run --rm -v "$PWD:/src" "$(cat pkgbuild/image)" /src/pkgbuild/build
+#
+# makepkg refuses to run as root, so the build happens as an unprivileged
+# user on a copy of the tree; the unit tests run as part of it (check()).
+set -euo pipefail
+src=$(cd "$(dirname "$0")/.." && pwd)
+
+# pacman confines its downloader with Landlock and a separate user, which a
+# container does not allow; the container is the confinement here.
+grep -q '^DisableSandboxFilesystem' /etc/pacman.conf \
+    || sed -i '/^DownloadUser = /d; /^CheckSpace/a DisableSandboxFilesystem\nDisableSandboxSyscalls' /etc/pacman.conf
+
+# The image ships without pacman's signing keys set up.
+if [ ! -d /etc/pacman.d/gnupg ]; then
+    pacman-key --init
+    pacman-key --populate archlinuxarm
+fi
+
+# The rolling repositories move under a pinned image: sync fully, never
+# partially (only the kernel and firmware, unused in a container, stay
+# behind). A mirror can fail; pacman moves to the next one, and we retry.
+for attempt in 1 2 3; do
+    pacman -Syu --noconfirm --needed --ignore 'linux-aarch64,linux-firmware*' base-devel qt6-base qt6-declarative wayland ttf-dejavu && break
+    [ "$attempt" -lt 3 ] || { echo "pacman failed three times" >&2; exit 1; }
+    sleep 10
+done
+
+id build >/dev/null 2>&1 || useradd -m build
+work=/home/build/omactivity
+rm -rf "$work"
+mkdir -p "$work"
+tar -C "$src" --exclude=./build --exclude=./dist --exclude=./.git -cf - . | tar -C "$work" -xf -
+chown -R build:build "$work"
+
+# One timestamp for every file in the package: the commit's, when known.
+epoch=${SOURCE_DATE_EPOCH:-$(git -C "$src" -c safe.directory='*' log -1 --format=%ct 2>/dev/null || date +%s)}
+su build -c "cd '$work/pkgbuild' && SOURCE_DATE_EPOCH=$epoch PKGEXT=.pkg.tar.zst QT_QPA_PLATFORM=offscreen makepkg --noconfirm --force"
+
+mkdir -p "$src/dist"
+rm -f "$src"/dist/omactivity-*.pkg.tar.zst "$src/dist/SHA256SUMS"
+cp "$work"/pkgbuild/omactivity-*.pkg.tar.zst "$src/dist/"
+(cd "$src/dist" && sha256sum omactivity-*.pkg.tar.zst > SHA256SUMS && cat SHA256SUMS)

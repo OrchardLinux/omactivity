@@ -1,0 +1,21 @@
+#!/bin/sh
+# Saves a picture of the app showing the recorded /proc tree of
+# tests/fixtures, stepped once so the CPU columns have numbers.
+#   dev/shot OUT.png WIDTHxHEIGHT [STATE]
+# STATE is what --show takes, e.g. "tab:memory,expand:Firefox,inspect:Isolated Web Co".
+# Run inside the container, as the fixture's user:
+#   OMACTIVITY_USER=1000 dev/run dev/shot build/shots/tablet.png 1024x768
+set -eu
+out=$1 size=$2 state=${3:-}
+tree=$(mktemp -d)
+cp -a /src/tests/fixtures/tree/. "$tree/"
+(
+    sleep 1
+    cp -a /src/tests/fixtures/next/proc/. "$tree/proc/"
+    while read -r pid; do rm -rf "$tree/proc/$pid"; done < /src/tests/fixtures/next/removed
+) &
+mkdir -p "$(dirname "$out")"
+XDG_DATA_DIRS=/src/tests/fixtures XDG_CONFIG_HOME="$tree/config" \
+OMACTIVITY_PROC="$tree/proc" OMACTIVITY_SYS="$tree/sys" OMACTIVITY_PROTECTED=/src/data/protected.conf \
+    /src/build/omactivity --grab "$out" --size "$size" ${state:+--show "$state"}
+rm -rf "$tree"

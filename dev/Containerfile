@@ -1,0 +1,12 @@
+# Build and test image for working on Omactivity: Arch Linux ARM with the
+# Qt the package builds against (the same pinned base as pkgbuild/image).
+# Used by dev/run; not part of the package.
+FROM docker.io/arch4edu/archlinuxarm@sha256:1db43d1af9917db5fd34af3dab64e2b229a21240e81bb765e3d2d3c34739d587
+RUN sed -i '/^DownloadUser = /d; /^CheckSpace/a DisableSandboxFilesystem\nDisableSandboxSyscalls' /etc/pacman.conf \
+    && pacman -Syu --noconfirm --needed gcc make pkgconf qt6-base qt6-declarative wayland ttf-jetbrains-mono-nerd procps-ng sudo \
+    && rm -rf /var/cache/pacman/pkg/*
+# The pictures and the sudo checks run as the image's own uid 1000 user
+# (alarm), which owns the session in tests/fixtures. wheel may sudo with a
+# password, as on Omarchy. The password is for this throwaway container only.
+RUN usermod -aG wheel alarm && echo 'alarm:alarm' | chpasswd \
+    && echo '%wheel ALL=(ALL:ALL) ALL' > /etc/sudoers.d/wheel

@@ -1,0 +1,20 @@
+#!/bin/sh
+# Resident memory of the app and CPU use of its collector thread, over 30 s
+# with the list open. Indicative only when run in the container; the targets
+# (40 MB, 2 % of one core at the 2 s rate) are for the devices.
+#   podman run --pid=host ... dev/measure [cpu|memory]     (dev/run does not pass --pid=host)
+set -eu
+tab=${1:-cpu}
+/src/build/omactivity --tab "$tab" --size 1024x768 &
+app=$!
+sleep 5
+ticks() { for t in /proc/$app/task/*; do read -r line < "$t/stat"; case $line in *"(collector)"*) set -- ${line##*) }; echo $((${12} + ${13}));; esac; done; }
+all() { read -r line < /proc/$app/stat; set -- ${line##*) }; echo $((${12} + ${13})); }
+c0=$(ticks) a0=$(all)
+sleep 30
+c1=$(ticks) a1=$(all)
+echo "tab=$tab processes=$(ls -d /proc/[0-9]* | wc -l)"
+echo "collector thread: $((c1 - c0)) ticks in 30 s = $(awk "BEGIN{printf \"%.2f\", ($c1-$c0)/30}") % of one core"
+echo "whole app:        $((a1 - a0)) ticks in 30 s = $(awk "BEGIN{printf \"%.2f\", ($a1-$a0)/30}") % of one core"
+grep -E "VmRSS|RssAnon|RssFile" /proc/$app/status
+kill $app

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Omacalc
+Icon=omacalc
+Exec=omacalc
+Categories=Utility;Calculator;
+
+[Desktop Action new-window]
+Name=New Window

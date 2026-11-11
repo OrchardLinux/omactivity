@@ -1,0 +1,39 @@
+#!/bin/sh
+# Records the parts of /proc and /sys that Omactivity reads into a directory,
+# for tests/fixtures. Run as root on the machine to record, so every
+# process's smaps_rollup and io are readable:
+#   tests/record-proc /tmp/tree
+# The result has proc/ and sys/. Environments are not recorded.
+set -eu
+out=$1
+mkdir -p "$out/proc/net" "$out/proc/pressure" "$out/sys/devices/system/cpu" "$out/sys/block"
+
+for f in stat meminfo loadavg uptime; do cat /proc/$f > "$out/proc/$f"; done
+cat /proc/pressure/memory > "$out/proc/pressure/memory" 2>/dev/null || rmdir "$out/proc/pressure"
+for f in tcp tcp6 udp udp6 unix; do cat /proc/net/$f > "$out/proc/net/$f" 2>/dev/null || true; done
+
+for dir in /proc/[0-9]*; do
+    pid=${dir#/proc/}
+    mkdir -p "$out/proc/$pid"
+    for f in stat status cmdline cgroup smaps_rollup io; do
+        cat "$dir/$f" > "$out/proc/$pid/$f" 2>/dev/null || rm -f "$out/proc/$pid/$f"
+    done
+    # A process that ended while it was being read leaves no stat behind.
+    [ -s "$out/proc/$pid/stat" ] || { rm -rf "$out/proc/$pid"; continue; }
+    cwd=$(readlink "$dir/cwd" 2>/dev/null) && ln -s "$cwd" "$out/proc/$pid/cwd"
+    mkdir "$out/proc/$pid/fd"
+    for fd in "$dir"/fd/*; do
+        target=$(readlink "$fd" 2>/dev/null) && ln -s "$target" "$out/proc/$pid/fd/${fd##*/}"
+    done
+done
+
+for cpu in /sys/devices/system/cpu/cpu[0-9]*; do
+    [ -r "$cpu/cpufreq/scaling_cur_freq" ] || continue
+    mkdir -p "$out/sys/devices/system/cpu/${cpu##*/}/cpufreq"
+    cat "$cpu/cpufreq/scaling_cur_freq" > "$out/sys/devices/system/cpu/${cpu##*/}/cpufreq/scaling_cur_freq"
+done
+for z in /sys/block/zram*; do
+    [ -r "$z/mm_stat" ] || continue
+    mkdir -p "$out/sys/block/${z##*/}"
+    cat "$z/mm_stat" > "$out/sys/block/${z##*/}/mm_stat"
+done

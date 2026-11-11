@@ -1,0 +1,228 @@
+#!/usr/bin/env python3
+"""Builds tests/fixtures from two recordings made with tests/record-proc.
+
+    tests/make-fixture REC1 REC2
+
+REC1 and REC2 are trees recorded a moment apart on the same machine. The
+result is:
+
+  fixtures/tree/proc, tree/sys   the first recording
+  fixtures/next/proc             what changed by the second one (only the
+                                 files that differ), plus next/removed, the
+                                 PIDs that were gone
+  fixtures/applications          .desktop files for the session below
+
+The recorded machine is a headless VM, so it has system processes but no
+desktop. A small desktop session (a compositor, a shell, a few apps in
+systemd app scopes, owned by uid 1000) is written on top, using the
+recorded files of a real process as the template so the formats stay the
+kernel's. Its numbers are chosen, not measured; the tests rely on them.
+"""
+import os
+import re
+import shutil
+import sys
+
+rec1, rec2 = sys.argv[1], sys.argv[2]
+here = os.path.dirname(os.path.abspath(__file__))
+out = os.path.join(here, "fixtures")
+tree, nxt = os.path.join(out, "tree"), os.path.join(out, "next")
+for d in (tree, nxt, os.path.join(out, "applications")):
+    shutil.rmtree(d, ignore_errors=True)
+
+RECORDER = {"record-proc", "sudo", "cat", "readlink", "sleep", "tar"}
+PER_PID = ("stat", "status", "cmdline", "cgroup", "smaps_rollup", "io")
+
+
+def read(path):
+    with open(path, "rb") as f:
+        return f.read()
+
+
+def write(path, data):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "wb") as f:
+        f.write(data if isinstance(data, bytes) else data.encode())
+
+
+def comm(statdata):
+    return statdata[statdata.index(b"(") + 1:statdata.rindex(b")")].decode()
+
+
+def pids(rec):
+    return sorted(int(p) for p in os.listdir(os.path.join(rec, "proc")) if p.isdigit())
+
+
+# ---- the recording --------------------------------------------------------
+# The recorder ran in a login session of its own; none of that session
+# belongs in the fixture.
+own_session = {read(os.path.join(rec1, "proc", str(p), "cgroup")) for p in pids(rec1)
+               if comm(read(os.path.join(rec1, "proc", str(p), "stat"))) == "record-proc"}
+keep = []
+for pid in pids(rec1):
+    src = os.path.join(rec1, "proc", str(pid))
+    if comm(read(os.path.join(src, "stat"))) in RECORDER or read(os.path.join(src, "cgroup")) in own_session:
+        continue
+    keep.append(pid)
+    for name in PER_PID:
+        if os.path.exists(os.path.join(src, name)):
+            data = read(os.path.join(src, name))
+            if name == "cmdline":  # the machine's id is nobody's business
+                data = re.sub(rb"(--machine-id\0)[0-9a-f]{32}", lambda m: m.group(1) + b"0" * 32, data)
+            write(os.path.join(tree, "proc", str(pid), name), data)
+    if os.path.islink(os.path.join(src, "cwd")):
+        os.symlink(os.readlink(os.path.join(src, "cwd")), os.path.join(tree, "proc", str(pid), "cwd"))
+    if pid == 1:  # one real descriptor table is enough
+        os.makedirs(os.path.join(tree, "proc", "1", "fd"))
+        for fd in sorted(os.listdir(os.path.join(src, "fd")), key=int)[:48]:
+            os.symlink(os.readlink(os.path.join(src, "fd", fd)), os.path.join(tree, "proc", "1", "fd", fd))
+
+for name in ("stat", "meminfo", "loadavg", "uptime", "net/tcp", "net/tcp6", "net/udp", "net/udp6", "net/unix"):
+    write(os.path.join(tree, "proc", name), read(os.path.join(rec1, "proc", name)))
+
+removed = []
+for pid in keep:
+    dst = os.path.join(rec2, "proc", str(pid))
+    if not os.path.exists(os.path.join(dst, "stat")):
+        removed.append(pid)
+        continue
+    for name in ("stat", "status"):
+        new = read(os.path.join(dst, name))
+        if new != read(os.path.join(tree, "proc", str(pid), name)):
+            write(os.path.join(nxt, "proc", str(pid), name), new)
+for name in ("stat", "meminfo", "loadavg", "uptime"):
+    write(os.path.join(nxt, "proc", name), read(os.path.join(rec2, "proc", name)))
+
+# ---- chosen system numbers ------------------------------------------------
+# The VM was idle and has neither zram nor cpufreq; give the footers
+# something to show. Formats are the kernel's.
+write(os.path.join(tree, "proc", "pressure", "memory"),
+      "some avg10=4.20 avg60=3.10 avg300=2.05 total=81234567\nfull avg10=0.60 avg60=0.42 avg300=0.21 total=9123456\n")
+write(os.path.join(nxt, "proc", "pressure", "memory"),
+      "some avg10=6.80 avg60=3.40 avg300=2.10 total=81534567\nfull avg10=1.10 avg60=0.48 avg300=0.22 total=9163456\n")
+for cpu, khz in (("cpu0", 1800000), ("cpu1", 2340000)):
+    write(os.path.join(tree, "sys", "devices", "system", "cpu", cpu, "cpufreq", "scaling_cur_freq"), "%d\n" % khz)
+write(os.path.join(tree, "sys", "block", "zram0", "mm_stat"),
+      "305135616 96468992 98881536        0 104857600     3120        0        0        0\n")
+
+# ---- the desktop session --------------------------------------------------
+template = next(p for p in keep if comm(read(os.path.join(tree, "proc", str(p), "stat"))) == "bash")
+T = {name: read(os.path.join(tree, "proc", str(template), name)) for name in ("stat", "status", "smaps_rollup", "io")}
+uptime_ticks = int(float(read(os.path.join(tree, "proc", "uptime")).split()[0]) * 100)
+USER = "/user.slice/user-1000.slice/user@1000.service"
+
+
+def stat_line(pid, name, state, ppid, ticks, nice, threads, start, vsize_kb, rss_kb):
+    after = T["stat"][T["stat"].rindex(b")") + 2:].decode().split()
+    after[0], after[1], after[2] = state, str(ppid), str(pid)
+    user = ticks * 4 // 5
+    after[11], after[12] = str(user), str(ticks - user)
+    after[16], after[17], after[19] = str(nice), str(threads), str(start)
+    after[20], after[21] = str(vsize_kb * 1024), str(rss_kb // 4)
+    return "%d (%s) %s\n" % (pid, name[:15], " ".join(after))
+
+
+def set_key(data, key, value):
+    return re.sub(rb"(?m)^(%s:\s*)\S.*$" % re.escape(key.encode()), lambda m: m.group(1) + str(value).encode(), data)
+
+
+def status(name, pid, ppid, uid, state, rss_kb, threads, vol, nonvol):
+    s = set_key(T["status"], "Name", name[:15])
+    states = {"S": "S (sleeping)", "R": "R (running)", "T": "T (stopped)"}
+    for key, value in (("State", states[state]), ("Tgid", pid), ("Pid", pid), ("PPid", ppid),
+                       ("Uid", "%d\t%d\t%d\t%d" % (uid, uid, uid, uid)), ("Gid", "%d\t%d\t%d\t%d" % (uid, uid, uid, uid)),
+                       ("VmRSS", "%d kB" % rss_kb), ("Threads", threads),
+                       ("voluntary_ctxt_switches", vol), ("nonvoluntary_ctxt_switches", nonvol)):
+        s = set_key(s, key, value)
+    return s
+
+
+def smaps(rss_kb, pss_kb, swap_kb):
+    private = pss_kb * 9 // 10
+    s = T["smaps_rollup"]
+    for key, value in (("Rss", rss_kb), ("Pss", pss_kb), ("Private_Clean", private // 8), ("Private_Dirty", private - private // 8),
+                       ("Shared_Clean", rss_kb - private), ("Shared_Dirty", 0), ("Swap", swap_kb)):
+        s = re.sub(rb"(?m)^(%s:\s*)\d+( kB)$" % key.encode(), lambda m: m.group(1) + str(value).encode() + m.group(2), s)
+    return s
+
+
+# pid, ppid, name, cmdline, cgroup, uid, state, nice, threads, cpu ticks at
+# the first frame, ticks used by the second, wake-ups by the second,
+# Pss kB, swap kB, age in seconds
+SESSION = [
+    (900, 1, "systemd", "/usr/lib/systemd/systemd --user", USER + "/init.scope", 1000, "S", 0, 1, 412, 0, 2, 9800, 0, 170000),
+    (905, 1, "labwc", "labwc -s omarchy-session", "/user.slice/user-1000.slice/session-1.scope", 1000, "S", 0, 6, 289031, 10, 120, 61400, 2100, 169990),
+    (930, 900, "quickshell", "quickshell -p /usr/share/omarchy/shell", USER + "/session.slice/quickshell.service", 1000, "S", 0, 14, 80412, 4, 60, 148200, 9300, 169980),
+    (940, 900, "pipewire", "/usr/bin/pipewire", USER + "/session.slice/pipewire.service", 1000, "S", -11, 3, 9120, 1, 22, 11200, 800, 169975),
+    (941, 900, "wireplumber", "/usr/bin/wireplumber", USER + "/session.slice/wireplumber.service", 1000, "S", -11, 5, 3120, 0, 6, 14900, 1200, 169975),
+    (950, 900, "dbus-broker-launch", "/usr/bin/dbus-broker-launch --scope user", USER + "/app.slice/dbus-broker.service", 1000, "S", 0, 1, 210, 0, 0, 3100, 0, 169970),
+    (951, 950, "dbus-broker", "dbus-broker --log 4 --controller 9", USER + "/app.slice/dbus-broker.service", 1000, "S", 0, 1, 1830, 0, 9, 2600, 0, 169970),
+    (960, 900, "xdg-desktop-portal", "/usr/lib/xdg-desktop-portal", USER + "/session.slice/xdg-desktop-portal.service", 1000, "S", 0, 7, 640, 0, 3, 13400, 2600, 169900),
+    (1204, 900, "firefox", "/usr/lib/firefox/firefox", USER + "/app.slice/app-firefox@3f1a.scope", 1000, "S", 0, 72, 40820, 25, 96, 254054, 30925, 1737),
+    (1250, 1204, "Socket Process", "/usr/lib/firefox/firefox -contentproc -parentBuildID 20261101 socket", USER + "/app.slice/app-firefox@3f1a.scope", 1000, "S", 0, 6, 310, 0, 4, 9100, 300, 1735),
+    (1311, 1204, "WebExtensions", "/usr/lib/firefox/firefox -contentproc -isForBrowser -prefsLen 30120 {7d1e} 1204 tab", USER + "/app.slice/app-firefox@3f1a.scope", 1000, "S", 0, 15, 2371, 1, 8, 47309, 3174, 1730),
+    (1390, 1204, "RDD Process", "/usr/lib/firefox/firefox -contentproc -parentBuildID 20261101 rdd", USER + "/app.slice/app-firefox@3f1a.scope", 1000, "S", 0, 9, 4155, 4, 33, 27136, 512, 1722),
+    (1688, 1204, "Isolated Web Co", "/usr/lib/firefox/firefox -contentproc -isForBrowser -prefsLen 31544 -prefMapSize 244787 -jsInitLen 231800 {5c1e} 1204 tab", USER + "/app.slice/app-firefox@3f1a.scope", 1000, "S", 0, 28, 29137, 39, 214, 320102, 21914, 1737 - 20),
+    (1752, 1204, "Isolated Web Co", "/usr/lib/firefox/firefox -contentproc -isForBrowser -prefsLen 31544 -prefMapSize 244787 -jsInitLen 231800 {9a40} 1204 tab", USER + "/app.slice/app-firefox@3f1a.scope", 1000, "R", 0, 24, 7209, 8, 61, 111514, 8806, 900),
+    (1840, 900, "dolphin", "/usr/bin/dolphin", USER + "/app.slice/app-org.kde.dolphin@a1b2.scope", 1000, "S", 0, 11, 3107, 1, 12, 58200, 4100, 1500),
+    (2210, 900, "foot", "foot", USER + "/app.slice/app-foot@77c2.scope", 1000, "S", 0, 1, 2114, 2, 6, 21300, 900, 1200),
+    (2214, 2210, "bash", "/usr/bin/bash", USER + "/app.slice/app-foot@77c2.scope", 1000, "S", 0, 1, 42, 0, 0, 4100, 0, 1199),
+    (2301, 2214, "btop", "btop", USER + "/app.slice/app-foot@77c2.scope", 1000, "S", 0, 1, 3058, 6, 12, 7900, 0, 1100),
+    (2954, 900, "omacalc", "/usr/bin/omacalc", USER + "/app.slice/app-omacalc@c3d4.scope", 1000, "T", 0, 5, 102, 0, 0, 38400, 1500, 420),
+    (3011, 900, "omactivity", "/usr/bin/omactivity", USER + "/app.slice/app-omactivity@e5f6.scope", 1000, "R", 0, 6, 481, 3, 4, 31200, 0, 64),
+    (3100, 1, "sleep", "sleep infinity", "/user.slice/user-1001.slice/session-4.scope", 1001, "S", 5, 1, 1, 0, 0, 900, 0, 5000),
+]
+
+for pid, ppid, name, cmdline, cgroup, uid, state, nice, threads, ticks, used, wakeups, pss, swap, age in SESSION:
+    base = os.path.join(tree, "proc", str(pid))
+    # A recorded process that happens to have this PID makes way.
+    shutil.rmtree(base, ignore_errors=True)
+    shutil.rmtree(os.path.join(nxt, "proc", str(pid)), ignore_errors=True)
+    if pid in removed:
+        removed.remove(pid)
+    rss = pss * 108 // 100
+    start = uptime_ticks - age * 100
+    write(os.path.join(base, "stat"), stat_line(pid, name, state, ppid, ticks, nice, threads, start, rss * 8, rss))
+    write(os.path.join(base, "status"), status(name, pid, ppid, uid, state, rss, threads, 4000 + pid, 300 + pid % 50))
+    write(os.path.join(base, "cmdline"), cmdline.replace(" ", "\0") + "\0")
+    write(os.path.join(base, "cgroup"), "0::%s\n" % cgroup)
+    write(os.path.join(base, "smaps_rollup"), smaps(rss, pss, swap))
+    write(os.path.join(base, "io"), T["io"])
+    os.symlink("/home/tablet", os.path.join(base, "cwd"))
+    if used or wakeups:
+        nb = os.path.join(nxt, "proc", str(pid))
+        write(os.path.join(nb, "stat"), stat_line(pid, name, state, ppid, ticks + used, nice, threads, start, rss * 8, rss))
+        write(os.path.join(nb, "status"), status(name, pid, ppid, uid, state, rss, threads, 4000 + pid + wakeups, 300 + pid % 50))
+
+# A descriptor table with every kind of entry, on the browser.
+fds = {0: "/dev/null", 1: "/dev/null", 2: "/dev/null", 3: "socket:[14199]", 4: "socket:[14247]", 5: "socket:[11841]",
+       6: "pipe:[30412]", 7: "anon_inode:[eventfd]", 8: "/home/tablet/.mozilla/firefox/default/places.sqlite",
+       9: "/usr/lib/firefox/omni.ja", 10: "socket:[99999]"}
+os.makedirs(os.path.join(tree, "proc", "1204", "fd"))
+for fd, target in fds.items():
+    os.symlink(target, os.path.join(tree, "proc", "1204", "fd", str(fd)))
+
+# By the second frame the user's sleep has ended and a new process started.
+removed.append(3100)
+write(os.path.join(nxt, "removed"), "".join("%d\n" % p for p in sorted(removed)))
+base = os.path.join(nxt, "proc", "3200")
+shutil.rmtree(base, ignore_errors=True)
+shutil.rmtree(os.path.join(tree, "proc", "3200"), ignore_errors=True)
+write(os.path.join(base, "stat"), stat_line(3200, "wl-copy", "S", 900, 2, 0, 1, uptime_ticks, 9000, 2100))
+write(os.path.join(base, "status"), status("wl-copy", 3200, 900, 1000, "S", 2100, 1, 3, 0))
+write(os.path.join(base, "cmdline"), "wl-copy\0")
+write(os.path.join(base, "cgroup"), "0::%s/app.slice/app-foot@77c2.scope\n" % USER)
+
+DESKTOP = {
+    "firefox": ("Firefox", "firefox", "Network;WebBrowser;"),
+    "foot": ("foot", "foot", "System;TerminalEmulator;"),
+    "org.kde.dolphin": ("Dolphin", "system-file-manager", "Qt;KDE;System;FileManager;"),
+    "omacalc": ("Omacalc", "omacalc", "Utility;Calculator;"),
+    "omactivity": ("Omactivity", "omactivity", "System;Monitor;"),
+}
+for app_id, (title, icon, categories) in DESKTOP.items():
+    write(os.path.join(out, "applications", app_id + ".desktop"),
+          "[Desktop Entry]\nType=Application\nName=%s\nIcon=%s\nExec=%s\nCategories=%s\n\n[Desktop Action new-window]\nName=New Window\n"
+          % (title, icon, app_id, categories))
+
+print("fixture: %d recorded processes, %d session processes" % (len(keep), len(SESSION)))

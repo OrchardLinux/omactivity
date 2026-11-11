@@ -1,0 +1,14 @@
+#!/bin/sh
+# Runs a command in the build container with the repository at /src.
+#   dev/run                 build the app into build/
+#   dev/run bin/test        build and run the tests
+#   dev/run sh              a shell
+# The image comes from dev/Containerfile:
+#   podman build -t localhost/omactivity-dev -f dev/Containerfile dev
+set -eu
+root=$(cd "$(dirname "$0")/.." && pwd)
+[ $# -gt 0 ] || set -- sh -c 'mkdir -p build && cd build && qmake6 ../omactivity.pro && make -j"$(nproc)"'
+exec podman run --rm -i -v "$root:/src" -w /src ${OMACTIVITY_USER:+--user "$OMACTIVITY_USER"} \
+    -e QT_FORCE_STDERR_LOGGING=1 -e QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}" -e QT_QUICK_BACKEND="${QT_QUICK_BACKEND:-software}" \
+    ${OMACTIVITY_PROC:+-e OMACTIVITY_PROC="$OMACTIVITY_PROC"} ${OMACTIVITY_SYS:+-e OMACTIVITY_SYS="$OMACTIVITY_SYS"} \
+    localhost/omactivity-dev:latest "$@"

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Omactivity
+GenericName=Task Manager
+Comment=See what is running, what it uses, and quit it
+Exec=omactivity
+Icon=omactivity
+Terminal=false
+Categories=System;Monitor;
+Keywords=Activity Monitor;Task Manager;Processes;CPU;Memory;Kill;Force Quit;btop;top;
+StartupWMClass=omactivity

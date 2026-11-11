@@ -1,0 +1,59 @@
+Name:	bash
+Umask:	0022
+State:	S (sleeping)
+Tgid:	1577
+Ngid:	0
+Pid:	1577
+PPid:	1242
+TracerPid:	0
+Uid:	0	0	0	0
+Gid:	0	0	0	0
+FDSize:	256
+Groups:	 
+NStgid:	1577
+NSpid:	1577
+NSpgid:	1577
+NSsid:	1577
+Kthread:	0
+VmPeak:	    6300 kB
+VmSize:	    6300 kB
+VmLck:	       0 kB
+VmPin:	       0 kB
+VmHWM:	    4808 kB
+VmRSS:	    4808 kB
+RssAnon:	    1556 kB
+RssFile:	    3252 kB
+RssShmem:	       0 kB
+VmData:	    2072 kB
+VmStk:	     132 kB
+VmExe:	    1396 kB
+VmLib:	    2012 kB
+VmPTE:	      44 kB
+VmSwap:	       0 kB
+HugetlbPages:	       0 kB
+CoreDumping:	0
+THP_enabled:	1
+untag_mask:	0xffffffffffffff
+Threads:	1
+SigQ:	3/63753
+SigPnd:	0000000000000000
+ShdPnd:	0000000000000000
+SigBlk:	0000000000000000
+SigIgn:	0000000000384004
+SigCgt:	000000004b813efb
+CapInh:	0000000000000000
+CapPrm:	000001ffffffffff
+CapEff:	000001ffffffffff
+CapBnd:	000001ffffffffff
+CapAmb:	0000000000000000
+NoNewPrivs:	0
+Seccomp:	0
+Seccomp_filters:	0
+Speculation_Store_Bypass:	vulnerable
+SpeculationIndirectBranch:	unknown
+Cpus_allowed:	3ff
+Cpus_allowed_list:	0-9
+Mems_allowed:	00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000001
+Mems_allowed_list:	0
+voluntary_ctxt_switches:	30
+nonvoluntary_ctxt_switches:	0

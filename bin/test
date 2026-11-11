@@ -1,0 +1,12 @@
+#!/bin/sh
+# Builds and runs the unit tests. Needs qmake6 and a compiler; no device and
+# no display. The collector tests read the recorded /proc tree in
+# tests/fixtures; the signal tests act on processes they start themselves.
+set -eu
+root=$(cd "$(dirname "$0")/.." && pwd)
+build=${OMACTIVITY_TEST_BUILD:-$root/build/tests}
+mkdir -p "$build"
+cd "$build"
+qmake6 "$root/tests/tests.pro"
+make -j"$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
+QT_QPA_PLATFORM=offscreen ./tst_omactivity "$@"

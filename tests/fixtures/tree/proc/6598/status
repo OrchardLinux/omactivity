@@ -1,0 +1,59 @@
+Name:	udisksd
+Umask:	0022
+State:	S (sleeping)
+Tgid:	6598
+Ngid:	0
+Pid:	6598
+PPid:	1
+TracerPid:	0
+Uid:	0	0	0	0
+Gid:	0	0	0	0
+FDSize:	512
+Groups:	 
+NStgid:	6598
+NSpid:	6598
+NSpgid:	6598
+NSsid:	6598
+Kthread:	0
+VmPeak:	  612840 kB
+VmSize:	  547304 kB
+VmLck:	       0 kB
+VmPin:	       0 kB
+VmHWM:	   27240 kB
+VmRSS:	   27240 kB
+RssAnon:	   16568 kB
+RssFile:	   10672 kB
+RssShmem:	       0 kB
+VmData:	   74076 kB
+VmStk:	     132 kB
+VmExe:	     536 kB
+VmLib:	   22252 kB
+VmPTE:	     160 kB
+VmSwap:	       0 kB
+HugetlbPages:	       0 kB
+CoreDumping:	0
+THP_enabled:	1
+untag_mask:	0xffffffffffffff
+Threads:	7
+SigQ:	3/63753
+SigPnd:	0000000000000000
+ShdPnd:	0000000000000000
+SigBlk:	0000000000000000
+SigIgn:	0000000000001000
+SigCgt:	0000000100000002
+CapInh:	0000000000000000
+CapPrm:	000001ffffffffff
+CapEff:	000001ffffffffff
+CapBnd:	000001ffffffffff
+CapAmb:	0000000000000000
+NoNewPrivs:	0
+Seccomp:	0
+Seccomp_filters:	0
+Speculation_Store_Bypass:	vulnerable
+SpeculationIndirectBranch:	unknown
+Cpus_allowed:	3ff
+Cpus_allowed_list:	0-9
+Mems_allowed:	00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000001
+Mems_allowed_list:	0
+voluntary_ctxt_switches:	1187
+nonvoluntary_ctxt_switches:	2

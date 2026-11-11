@@ -1,0 +1,13 @@
+#!/bin/sh
+# Checks the sudo path against the real sudo: a root-owned process is
+# force-quit by a user who has to type a password, a wrong password sends
+# nothing, and a second one within sudo's timeout asks for none.
+# Run in the container, as root:   dev/run dev/sudo-check
+set -eu
+[ "$(id -u)" = 0 ] || { echo "run as root in the container" >&2; exit 1; }
+[ -x /src/build/tests/tst_omactivity ] || /src/bin/test -v2 >/dev/null 2>&1 || true
+sleep 600 & first=$!
+sleep 600 & second=$!
+trap 'kill $first $second 2>/dev/null || true' EXIT
+su alarm -c "cd /tmp && QT_QPA_PLATFORM=offscreen OMACTIVITY_TEST_SUDO_PASSWORD=alarm \
+    OMACTIVITY_TEST_ROOT_PIDS='$first $second' /src/build/tests/tst_omactivity rootProcessesThroughSudo"

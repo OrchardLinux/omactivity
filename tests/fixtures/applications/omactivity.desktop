@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Omactivity
+Icon=omactivity
+Exec=omactivity
+Categories=System;Monitor;
+
+[Desktop Action new-window]
+Name=New Window

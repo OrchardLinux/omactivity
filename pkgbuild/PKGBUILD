@@ -1,0 +1,31 @@
+# Builds the package from this checkout (no download): the release workflow
+# and `pkgbuild/build` run it in an Arch Linux ARM container.
+pkgname=omactivity
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Touch-first task manager for Omarchy"
+arch=('aarch64')
+url='https://github.com/OrchardLinux/omactivity'
+license=('MIT')
+depends=('qt6-base' 'qt6-declarative' 'wayland')
+checkdepends=('ttf-dejavu')
+optdepends=('sudo: quit and reprioritize processes of root and other users')
+backup=('etc/omactivity/protected.conf')
+
+_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+
+build() {
+    mkdir -p "$srcdir/build"
+    cd "$srcdir/build"
+    qmake6 "$_root/omactivity.pro"
+    make
+}
+
+check() {
+    OMACTIVITY_TEST_BUILD="$srcdir/tests" sh "$_root/bin/test"
+}
+
+package() {
+    make -C "$srcdir/build" INSTALL_ROOT="$pkgdir" install
+    install -Dm644 "$_root/LICENSE" "$pkgdir/usr/share/licenses/omactivity/LICENSE"
+}

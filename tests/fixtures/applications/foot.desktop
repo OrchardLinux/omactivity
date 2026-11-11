@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=foot
+Icon=foot
+Exec=foot
+Categories=System;TerminalEmulator;
+
+[Desktop Action new-window]
+Name=New Window

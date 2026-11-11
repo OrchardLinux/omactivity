@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Dolphin
+Icon=system-file-manager
+Exec=org.kde.dolphin
+Categories=Qt;KDE;System;FileManager;
+
+[Desktop Action new-window]
+Name=New Window

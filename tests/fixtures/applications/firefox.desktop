@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Firefox
+Icon=firefox
+Exec=firefox
+Categories=Network;WebBrowser;
+
+[Desktop Action new-window]
+Name=New Window

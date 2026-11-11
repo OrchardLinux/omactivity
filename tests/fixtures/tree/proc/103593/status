@@ -1,0 +1,59 @@
+Name:	systemd-userwor
+Umask:	0022
+State:	S (sleeping)
+Tgid:	103593
+Ngid:	0
+Pid:	103593
+PPid:	831
+TracerPid:	0
+Uid:	0	0	0	0
+Gid:	0	0	0	0
+FDSize:	64
+Groups:	 
+NStgid:	103593
+NSpid:	103593
+NSpgid:	831
+NSsid:	831
+Kthread:	0
+VmPeak:	   14816 kB
+VmSize:	   14756 kB
+VmLck:	       0 kB
+VmPin:	       0 kB
+VmHWM:	    6220 kB
+VmRSS:	    6220 kB
+RssAnon:	    1036 kB
+RssFile:	    5184 kB
+RssShmem:	       0 kB
+VmData:	     892 kB
+VmStk:	     132 kB
+VmExe:	      24 kB
+VmLib:	   12352 kB
+VmPTE:	      64 kB
+VmSwap:	       0 kB
+HugetlbPages:	       0 kB
+CoreDumping:	0
+THP_enabled:	1
+untag_mask:	0xffffffffffffff
+Threads:	1
+SigQ:	3/63753
+SigPnd:	0000000000000000
+ShdPnd:	0000000000000000
+SigBlk:	0000000000000000
+SigIgn:	0000000000000000
+SigCgt:	0000000000000000
+CapInh:	0000000000000000
+CapPrm:	0000000001000004
+CapEff:	0000000001000004
+CapBnd:	0000000001000004
+CapAmb:	0000000000000000
+NoNewPrivs:	1
+Seccomp:	2
+Seccomp_filters:	19
+Speculation_Store_Bypass:	vulnerable
+SpeculationIndirectBranch:	unknown
+Cpus_allowed:	3ff
+Cpus_allowed_list:	0-9
+Mems_allowed:	00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000001
+Mems_allowed_list:	0
+voluntary_ctxt_switches:	33
+nonvoluntary_ctxt_switches:	0
