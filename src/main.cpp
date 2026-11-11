@@ -12,6 +12,7 @@
 #include "toplevels.h"
 
 #include <QCommandLineParser>
+#include <QFont>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
@@ -49,6 +50,11 @@ int main(int argc, char **argv)
     // A recorded tree can stand in for the live one (tests, screenshots).
     const QString procRoot = qEnvironmentVariable("OMACTIVITY_PROC", QStringLiteral("/proc"));
     const QString sysRoot = qEnvironmentVariable("OMACTIVITY_SYS", QStringLiteral("/sys"));
+
+    // Folio's type: the monospace family at 13 px, sizes around it in QML.
+    QFont font(QStringLiteral("monospace"));
+    font.setPixelSize(13);
+    app.setFont(font);
 
     Theme theme;
     Prefs prefs;

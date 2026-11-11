@@ -6,7 +6,7 @@ Text {
     textFormat: Text.PlainText
     color: theme.foreground
     font.family: theme.fontFamily
-    font.pixelSize: theme.fontTitle
+    font.pixelSize: theme.fontText
     elide: Text.ElideRight
     verticalAlignment: Text.AlignVCenter
 }

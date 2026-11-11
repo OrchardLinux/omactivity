@@ -9,6 +9,7 @@
         <file>qml/LineGraph.qml</file>
         <file>qml/Main.qml</file>
         <file>qml/MenuRow.qml</file>
+        <file>qml/RowMenu.qml</file>
         <file>qml/ProcessTable.qml</file>
         <file>qml/SearchField.qml</file>
         <file>qml/Section.qml</file>

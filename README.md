@@ -87,10 +87,12 @@ A distro pins the release's download URL and checksum.
 - **Quit** asks the compositor to close the app's windows
   (wlr-foreign-toplevel-management: labwc, Hyprland), then sends SIGTERM
   after 5 s, then offers Force Quit after 5 more.
-- **Theme.** Colours from `~/.local/state/omarchy/current/theme/colors.toml`
-  (or `~/.config/omarchy/current/theme`), control styling, spacing and the
-  type scale from its `shell.toml` merged with `~/.config/omarchy/shell.toml`,
-  like the Omarchy shell. Reloaded when the theme changes.
+- **Theme.** The look follows [Folio](https://github.com/omacom/folio),
+  Omarchy's file manager: the palette of
+  `~/.local/state/omarchy/current/theme/colors.toml` (or
+  `~/.config/omarchy/current/theme`), fills instead of outlines, the
+  `monospace` family at 13 px. Corners follow Hyprland's window rounding and
+  are square elsewhere. Reloaded when the theme changes.
 - **Protected processes.** `/etc/omactivity/protected.conf` lists the
   processes whose loss takes the session down. Acting on one asks first and
   says what will happen. A distro adds its own lines.

@@ -11,7 +11,7 @@ Rectangle {
     color: theme.surface
     implicitHeight: narrow ? Ui.sp(96) : Ui.sp(memory ? 138 : 126)
 
-    Rectangle { width: parent.width; height: Ui.line; color: theme.separator }
+    Rectangle { width: parent.width; height: Ui.line; color: theme.line }
 
     function pressureColor(v) {
         if (!system.pressureAvailable)
@@ -31,9 +31,9 @@ Rectangle {
             id: cpuNumbers
             width: Ui.sp(root.narrow ? 120 : 172)
             anchors.verticalCenter: parent.verticalCenter
-            StatRow { width: parent.width; label: "System"; value: system.systemPercent.toFixed(1) + "%"; valueColor: theme.red }
-            StatRow { width: parent.width; label: "User"; value: system.userPercent.toFixed(1) + "%"; valueColor: theme.accent }
-            StatRow { width: parent.width; label: "Idle"; value: system.idlePercent.toFixed(1) + "%" }
+            StatRow { size: theme.fontMeta; width: parent.width; label: "System"; value: system.systemPercent.toFixed(1) + "%"; valueColor: theme.red }
+            StatRow { size: theme.fontMeta; width: parent.width; label: "User"; value: system.userPercent.toFixed(1) + "%"; valueColor: theme.accent }
+            StatRow { size: theme.fontMeta; width: parent.width; label: "Idle"; value: system.idlePercent.toFixed(1) + "%" }
         }
         Item {
             id: cpuGraphBox
@@ -46,14 +46,14 @@ Rectangle {
                 id: cpuTitle
                 visible: !root.narrow
                 width: parent.width
-                height: visible ? Ui.sp(18) : 0
-                T { text: "CPU LOAD"; color: theme.dim; font.pixelSize: theme.fontSmall; font.letterSpacing: 1.2 }
+                height: visible ? 20 : 0
+                T { text: "CPU LOAD"; color: theme.secondary; font.pixelSize: theme.fontLabel; font.letterSpacing: 1.3 }
                 T {
                     visible: cpuGraphBox.width > Ui.sp(150)
                     // The scale moves with the load, so say what the top is.
                     text: "top " + (prefs.perCore ? 100 : Math.round(cpuBars.scaleTop)) + "% · 2 min"
-                    color: theme.muted
-                    font.pixelSize: theme.fontSmall
+                    color: theme.secondary
+                    font.pixelSize: theme.fontCaption
                     anchors.right: parent.right
                 }
             }
@@ -84,11 +84,11 @@ Rectangle {
             width: Ui.sp(250)
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
-            StatRow { width: parent.width; implicitHeight: Ui.sp(20); label: "Load avg"; value: system.loadAverage }
-            StatRow { width: parent.width; implicitHeight: Ui.sp(20); label: "Processes"; value: system.processes }
-            StatRow { width: parent.width; implicitHeight: Ui.sp(20); label: "Threads"; value: system.threads }
-            StatRow { width: parent.width; implicitHeight: Ui.sp(20); label: "Frequency"; value: system.frequency || "—" }
-            StatRow { width: parent.width; implicitHeight: Ui.sp(20); label: "Uptime"; value: system.uptime }
+            StatRow { size: theme.fontMeta; width: parent.width; implicitHeight: Ui.sp(20); label: "Load avg"; value: system.loadAverage }
+            StatRow { size: theme.fontMeta; width: parent.width; implicitHeight: Ui.sp(20); label: "Processes"; value: system.processes }
+            StatRow { size: theme.fontMeta; width: parent.width; implicitHeight: Ui.sp(20); label: "Threads"; value: system.threads }
+            StatRow { size: theme.fontMeta; width: parent.width; implicitHeight: Ui.sp(20); label: "Frequency"; value: system.frequency || "—" }
+            StatRow { size: theme.fontMeta; width: parent.width; implicitHeight: Ui.sp(20); label: "Uptime"; value: system.uptime }
         }
     }
 
@@ -105,9 +105,10 @@ Rectangle {
             visible: root.narrow
             width: Ui.sp(150)
             anchors.verticalCenter: parent.verticalCenter
-            StatRow { width: parent.width; label: "Used"; value: system.memUsed }
-            StatRow { width: parent.width; label: "Swap"; value: system.swapUsed }
+            StatRow { size: theme.fontMeta; width: parent.width; label: "Used"; value: system.memUsed }
+            StatRow { size: theme.fontMeta; width: parent.width; label: "Swap"; value: system.swapUsed }
             StatRow {
+                size: theme.fontMeta
                 width: parent.width
                 label: "Pressure"
                 value: system.pressureAvailable ? system.pressureSome.toFixed(1) : "—"
@@ -125,11 +126,12 @@ Rectangle {
                 visible: !root.narrow
                 width: parent.width
                 height: visible ? Ui.sp(18) : 0
-                T { text: "MEMORY PRESSURE"; color: theme.dim; font.pixelSize: theme.fontSmall; font.letterSpacing: 1.2 }
+                T { id: memTitleText; text: "MEMORY PRESSURE"; color: theme.secondary; font.pixelSize: theme.fontLabel; font.letterSpacing: 1.3 }
                 T {
+                    visible: memTitle.width > memTitleText.implicitWidth + implicitWidth + 12
                     text: system.memUsedPercent.toFixed(0) + "% used" + (system.pressureAvailable ? " · " + system.pressureNow : "")
-                    color: theme.muted
-                    font.pixelSize: theme.fontSmall
+                    color: theme.secondary
+                    font.pixelSize: theme.fontCaption
                     anchors.right: parent.right
                 }
             }
@@ -153,12 +155,13 @@ Rectangle {
             width: Ui.sp(310)
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
-            StatRow { width: parent.width; implicitHeight: Ui.sp(19); label: "Physical Memory"; value: system.memTotal }
-            StatRow { width: parent.width; implicitHeight: Ui.sp(19); label: "Memory Used"; value: system.memUsed }
-            StatRow { width: parent.width; implicitHeight: Ui.sp(19); label: "Cached Files"; value: system.memCached }
-            StatRow { width: parent.width; implicitHeight: Ui.sp(19); label: "Swap Used"; value: system.swapUsed }
-            StatRow { width: parent.width; implicitHeight: Ui.sp(19); label: "Compressed"; value: system.compressed || "—" }
+            StatRow { size: theme.fontMeta; width: parent.width; implicitHeight: Ui.sp(19); label: "Physical Memory"; value: system.memTotal }
+            StatRow { size: theme.fontMeta; width: parent.width; implicitHeight: Ui.sp(19); label: "Memory Used"; value: system.memUsed }
+            StatRow { size: theme.fontMeta; width: parent.width; implicitHeight: Ui.sp(19); label: "Cached Files"; value: system.memCached }
+            StatRow { size: theme.fontMeta; width: parent.width; implicitHeight: Ui.sp(19); label: "Swap Used"; value: system.swapUsed }
+            StatRow { size: theme.fontMeta; width: parent.width; implicitHeight: Ui.sp(19); label: "Compressed"; value: system.compressed || "—" }
             StatRow {
+                size: theme.fontMeta
                 width: parent.width
                 implicitHeight: Ui.sp(19)
                 label: "Pressure 1 min · 5 min"
@@ -192,6 +195,7 @@ Rectangle {
             Repeater {
                 model: totals.numbers
                 StatRow {
+                    size: theme.fontMeta
                     required property var modelData
                     width: totalsNumbers.width
                     label: modelData.label
@@ -212,12 +216,12 @@ Rectangle {
                 visible: !root.narrow
                 width: parent.width
                 height: visible ? Ui.sp(18) : 0
-                T { text: totals.title; color: theme.dim; font.pixelSize: theme.fontSmall; font.letterSpacing: 1.2 }
+                T { text: totals.title; color: theme.secondary; font.pixelSize: theme.fontLabel; font.letterSpacing: 1.3 }
                 T {
                     visible: totalsGraph.width > Ui.sp(190)
                     text: totals.note
-                    color: theme.muted
-                    font.pixelSize: theme.fontSmall
+                    color: theme.secondary
+                    font.pixelSize: theme.fontCaption
                     anchors.right: parent.right
                 }
             }
@@ -242,6 +246,7 @@ Rectangle {
             Repeater {
                 model: totals.stats
                 StatRow {
+                    size: theme.fontMeta
                     required property var modelData
                     width: totalsStats.width
                     implicitHeight: Ui.sp(20)

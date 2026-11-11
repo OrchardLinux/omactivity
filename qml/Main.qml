@@ -22,7 +22,7 @@ Window {
 
     property bool inspectOpen: false
     property bool selectMode: false
-    property string overlay: ""  // "", "view", "actions", "signals", "priority"
+    property string overlay: ""  // "", "view", "actions" (the long-press menu), "priority"
     property string menuKey: ""  // the row the action menus are about
     property var menuInfo: ({})
     property int niceChoice: 0
@@ -60,12 +60,19 @@ Window {
         inspectOpen = false
         inspector.close()
     }
-    function openActions(key) {
+    // The menu for a row. With rowY it lifts that row (window coordinates);
+    // without, it hangs from the corner (right, bottom) of a button.
+    function openActions(key, rowY, value, title, right, bottom) {
         var info = processes.rowInfo(key)
         if (!info.valid)
             return
         menuKey = key
         menuInfo = info
+        rowMenu.rowY = rowY === undefined ? -1 : rowY
+        rowMenu.value = value || ""
+        rowMenu.valueTitle = title || ""
+        rowMenu.anchorRight = right === undefined ? win.width - Ui.margin : right
+        rowMenu.anchorY = bottom === undefined ? toolbar.height : bottom
         overlay = "actions"
     }
     function jumpTo(key) {
@@ -122,12 +129,16 @@ Window {
         sequence: "Escape"
         onActivated: {
             if (win.asking) actions.cancel()
+            else if (win.overlay === "actions") rowMenu.back()
             else if (win.overlay !== "") win.overlay = ""
             else if (searchField.editing || searchField.text.length > 0) { searchField.clear(); keyCatcher.forceActiveFocus() }
             else if (win.inspectOpen) win.closeInspector()
             else if (win.selectMode) win.selectMode = false
         }
     }
+    Shortcut { sequence: "Up"; enabled: win.overlay === "actions" && !win.asking; onActivated: rowMenu.move(-1) }
+    Shortcut { sequence: "Down"; enabled: win.overlay === "actions" && !win.asking; onActivated: rowMenu.move(1) }
+    Shortcut { sequences: ["Return", "Enter"]; enabled: win.overlay === "actions" && !win.asking; onActivated: rowMenu.activate() }
     Item { id: keyCatcher; focus: true }
 
     // ------------------------------------------------------------ main column
@@ -139,7 +150,7 @@ Window {
         Item {
             id: toolbar
             width: parent.width
-            height: Ui.sp(68)
+            height: 76
 
             Column {
                 anchors.left: parent.left
@@ -152,8 +163,8 @@ Window {
                     width: parent.width
                     text: "Omactivity"
                     color: theme.bright
-                    font.pixelSize: theme.fontHeading
-                    font.weight: Font.Bold
+                    font.pixelSize: theme.fontTitle
+                    font.weight: Font.DemiBold
                 }
                 T {
                     width: parent.width
@@ -161,8 +172,8 @@ Window {
                         : processes.search.length > 0 ? processes.matchCount + " of " + processes.processCount + " processes match"
                         : win.narrow ? win.shortViews[processes.view] + " · " + processes.processCount + " · " + collector.interval + " s"
                         : processes.viewTitle + " · " + processes.processCount + " processes · every " + collector.interval + " s"
-                    color: theme.dim
-                    font.pixelSize: theme.fontBody
+                    color: theme.secondary
+                    font.pixelSize: theme.fontMeta
                 }
             }
             Row {
@@ -173,6 +184,7 @@ Window {
                 spacing: Ui.sp(8)
                 Btn {
                     icon: "list-tree"
+                    selected: win.overlay === "view"
                     text: win.narrow ? "" : win.shortViews[processes.view]
                     trailingIcon: win.narrow ? "" : "chevron-down"
                     onClicked: win.overlay = "view"
@@ -196,7 +208,7 @@ Window {
                 Btn {
                     icon: "x-circle"
                     text: win.narrow ? "" : "Quit"
-                    kind: "primary"
+                    flat: false // the one solid Quit is in the inspect header
                     enabled: processes.selectionCount > 0
                     onClicked: actions.quit(processes.selectedKeys)
                 }
@@ -207,7 +219,7 @@ Window {
             id: filterRow
             anchors.top: toolbar.bottom
             width: parent.width
-            height: Ui.controlHeight + Ui.sp(16)
+            height: Ui.controlHeight + 12
             Segmented {
                 id: tabs
                 visible: !win.narrow
@@ -242,6 +254,7 @@ Window {
             width: parent.width
             narrow: win.narrow
             selectMode: win.selectMode
+            frozen: win.overlay === "actions"
             onRowTapped: (key, kind) => {
                 keyCatcher.forceActiveFocus()
                 if (win.selectMode)
@@ -249,7 +262,7 @@ Window {
                 else
                     win.openInspector(key)
             }
-            onRowMenu: key => win.openActions(key)
+            onRowMenu: (key, rowY, value, title) => win.openActions(key, table.y + rowY, value, title)
         }
 
         // Shown until a process has been opened once.
@@ -268,7 +281,7 @@ Window {
                 text: "Tap a group to open it, tap a process for details, hold one to quit it and more. Drag sideways for more columns. Columns and views are under the button at the top right."
                 wrapMode: Text.WordWrap
                 elide: Text.ElideNone
-                font.pixelSize: theme.fontBody
+                font.pixelSize: theme.fontMeta
             }
             MouseArea { anchors.fill: parent; onClicked: prefs.hintSeen = true }
         }
@@ -306,11 +319,11 @@ Window {
                     function onDevScrollChanged() { sideInspect.scrollTo(win.devScroll) }
                 }
                 onCloseRequested: win.closeInspector()
-                onMoreRequested: win.openActions(inspector.key)
+                onMoreRequested: (right, bottom) => win.openActions(inspector.key, undefined, "", "", right, bottom)
                 onJump: key => win.jumpTo(key)
             }
         }
-        Rectangle { width: Ui.line; height: parent.height; color: theme.normalBorder }
+        Rectangle { width: 1; height: parent.height; color: theme.line }
     }
 
     // Medium and narrow: a sheet that slides up over the dimmed list.
@@ -348,17 +361,17 @@ Window {
                     }
                     compact: win.narrow
                     onCloseRequested: win.closeInspector()
-                    onMoreRequested: win.openActions(inspector.key)
+                    onMoreRequested: (right, bottom) => win.openActions(inspector.key, undefined, "", "", right, bottom)
                     onJump: key => win.jumpTo(key)
                 }
             }
-            Rectangle { width: parent.width; height: Ui.line; color: theme.accent }
+            Rectangle { width: parent.width; height: 1; color: theme.line }
             // The grab handle: drag down, or tap, to close.
             Item {
                 width: Ui.sp(120)
                 height: Ui.sp(16)
                 anchors.horizontalCenter: parent.horizontalCenter
-                Rectangle { width: Ui.sp(40); height: Ui.sp(4); radius: Ui.sp(2); color: theme.muted; anchors.centerIn: parent }
+                Rectangle { width: 36; height: 4; radius: 2; color: theme.handle; anchors.centerIn: parent }
                 MouseArea {
                     id: handleMa
                     anchors.fill: parent
@@ -392,12 +405,13 @@ Window {
             Column {
                 id: viewColumn
                 width: parent.width
-                Section { width: parent.width; title: "VIEW"; implicitHeight: Ui.sp(22) }
+                Section { width: parent.width; title: "VIEW"; implicitHeight: 22 }
                 Repeater {
                     model: processes.views
                     MenuRow {
                         required property var modelData
-                        width: viewColumn.width
+                        x: -14
+                        width: viewColumn.width + 28
                         text: modelData.title
                         checkable: true
                         checked: processes.view === modelData.id
@@ -410,7 +424,8 @@ Window {
                     model: processes.allColumns
                     MenuRow {
                         required property var modelData
-                        width: viewColumn.width
+                        x: -14
+                        width: viewColumn.width + 28
                         text: modelData.title
                         checkable: true
                         checked: modelData.visible
@@ -449,126 +464,35 @@ Window {
         }
     }
 
-    // ------------------------------------------------------------ more actions
-    Sheet {
+    // ------------------------------------------------------------ long-press menu
+    RowMenu {
+        id: rowMenu
         open: win.overlay === "actions"
-        align: win.narrow ? "bottom" : "center"
+        narrow: win.narrow
+        info: win.menuInfo
+        blocked: open ? actions.disabledReason(win.menuKey) : ""
+        canInspect: !(win.inspectOpen && inspector.key === win.menuKey)
+        rowX: main.x
+        rowWidth: main.width
+        rowHeight: Ui.rowHeight
+        signalList: actions.signalList
         onDismissed: win.overlay = ""
-        Column {
-            id: actionColumn
-            width: parent.width
-            readonly property string blocked: win.overlay === "actions" ? actions.disabledReason(win.menuKey) : ""
-            T {
-                width: parent.width
-                text: (win.menuInfo.name || "") + (win.menuInfo.pid ? "  ·  PID " + win.menuInfo.pid : "")
-                color: theme.bright
-                font.weight: Font.Bold
-                bottomPadding: Ui.sp(8)
-            }
-            T {
-                visible: actionColumn.blocked.length > 0
-                width: parent.width
-                text: actionColumn.blocked
-                color: theme.yellow
-                font.pixelSize: theme.fontBody
-                wrapMode: Text.WordWrap
-                elide: Text.ElideNone
-                bottomPadding: Ui.sp(8)
-            }
-            MenuRow {
-                width: parent.width
-                visible: !(win.inspectOpen && inspector.key === win.menuKey)
-                icon: "info"
-                text: "Inspect"
-                onClicked: { win.overlay = ""; win.openInspector(win.menuKey) }
-            }
-            MenuRow {
-                width: parent.width
-                icon: "x-circle"
-                text: "Quit"
-                enabled: actionColumn.blocked.length === 0
-                onClicked: { win.overlay = ""; actions.quit([win.menuKey]) }
-            }
-            MenuRow {
-                width: parent.width
-                icon: "x-circle"
-                text: "Force Quit"
-                tint: theme.red
-                enabled: actionColumn.blocked.length === 0
-                onClicked: { win.overlay = ""; actions.forceQuit([win.menuKey]) }
-            }
-            MenuRow {
-                width: parent.width
-                icon: win.menuInfo.paused ? "play" : "pause"
-                text: win.menuInfo.paused ? "Resume" : "Pause"
-                detail: win.menuInfo.paused ? "SIGCONT" : "SIGSTOP: stops it until you resume it"
-                enabled: actionColumn.blocked.length === 0
-                onClicked: {
-                    win.overlay = ""
-                    var list = actions.signalList
-                    var wanted = win.menuInfo.paused ? "SIGCONT" : "SIGSTOP"
-                    for (var i = 0; i < list.length; i++)
-                        if (list[i].name === wanted)
-                            actions.sendSignal([win.menuKey], list[i].number)
-                }
-            }
-            MenuRow {
-                width: parent.width
-                icon: "activity"
-                text: "Send signal…"
-                enabled: actionColumn.blocked.length === 0
-                onClicked: win.overlay = "signals"
-            }
-            MenuRow {
-                width: parent.width
-                icon: "settings"
-                text: "Change priority…"
-                detail: "Nice " + (win.menuInfo.nice || 0)
-                enabled: actionColumn.blocked.length === 0
-                onClicked: { win.niceChoice = win.menuInfo.nice || 0; win.overlay = "priority" }
-            }
-            MenuRow {
-                width: parent.width
-                icon: "list-tree"
-                text: "Quit process tree"
-                detail: "This process and everything it started, children first"
-                enabled: actionColumn.blocked.length === 0
-                onClicked: { win.overlay = ""; actions.quitTree(win.menuKey) }
-            }
-        }
-    }
-
-    Sheet {
-        open: win.overlay === "signals"
-        align: win.narrow ? "bottom" : "center"
-        onDismissed: win.overlay = ""
-        Flickable {
-            width: parent.width
-            height: Math.min(signalColumn.height, win.height - 2 * Ui.margin - Ui.sp(36))
-            contentHeight: signalColumn.height
-            clip: true
-            boundsBehavior: Flickable.StopAtBounds
-            Column {
-                id: signalColumn
-                width: parent.width
-                T {
-                    width: parent.width
-                    text: "Send a signal to " + (win.menuInfo.name || "")
-                    color: theme.bright
-                    font.weight: Font.Bold
-                    bottomPadding: Ui.sp(8)
-                }
-                Repeater {
-                    model: actions.signalList
-                    MenuRow {
-                        required property var modelData
-                        width: signalColumn.width
-                        text: modelData.name
-                        detail: modelData.meaning
-                        tint: modelData.name === "SIGKILL" ? theme.red : theme.foreground
-                        onClicked: { win.overlay = ""; actions.sendSignal([win.menuKey], modelData.number) }
-                    }
-                }
+        onPicked: (action, number) => {
+            // The menu closes first, then the action runs or asks.
+            var key = win.menuKey
+            win.overlay = ""
+            if (action === "inspect") win.openInspector(key)
+            else if (action === "quit") actions.quit([key])
+            else if (action === "forcequit") actions.forceQuit([key])
+            else if (action === "tree") actions.quitTree(key)
+            else if (action === "signal") actions.sendSignal([key], number)
+            else if (action === "priority") { win.niceChoice = win.menuInfo.nice || 0; win.overlay = "priority" }
+            else if (action === "pause") {
+                var list = actions.signalList
+                var wanted = win.menuInfo.paused ? "SIGCONT" : "SIGSTOP"
+                for (var i = 0; i < list.length; i++)
+                    if (list[i].name === wanted)
+                        actions.sendSignal([key], list[i].number)
             }
         }
     }
@@ -584,7 +508,8 @@ Window {
                 width: parent.width
                 text: "Priority of " + (win.menuInfo.name || "")
                 color: theme.bright
-                font.weight: Font.Bold
+                font.pixelSize: theme.fontTitle
+                font.weight: Font.DemiBold
             }
             T {
                 text: "Nice " + win.niceChoice + (win.niceChoice === (win.menuInfo.nice || 0) ? "  (now)" : "")
@@ -601,25 +526,25 @@ Window {
                 Rectangle {
                     x: slider.knob / 2
                     width: slider.span
-                    height: Ui.sp(4)
+                    height: 4
+                    radius: 2
                     anchors.verticalCenter: parent.verticalCenter
-                    color: theme.muted
+                    color: theme.pressed
                 }
                 Rectangle { // the Normal mark
                     x: slider.knob / 2 + slider.span * 19 / 39 - width / 2
                     width: Ui.line + 1
                     height: Ui.sp(16)
                     anchors.verticalCenter: parent.verticalCenter
-                    color: theme.dim
+                    color: theme.secondary
                 }
                 Rectangle {
                     x: slider.span * (19 - win.niceChoice) / 39
                     width: slider.knob
                     height: slider.knob
                     anchors.verticalCenter: parent.verticalCenter
-                    color: theme.background
-                    border.width: Ui.line + 1
-                    border.color: theme.accent
+                    color: theme.accent
+                    radius: Ui.controlRadius
                 }
                 MouseArea {
                     anchors.fill: parent
@@ -631,26 +556,27 @@ Window {
             Item {
                 width: parent.width
                 height: Ui.sp(18)
-                T { text: "Lower"; color: theme.dim; font.pixelSize: theme.fontBody }
-                T { text: "Normal"; color: theme.dim; font.pixelSize: theme.fontBody; x: slider.knob / 2 + slider.span * 19 / 39 - width / 2 }
-                T { text: "Higher"; color: theme.dim; font.pixelSize: theme.fontBody; anchors.right: parent.right }
+                T { text: "Lower"; color: theme.secondary; font.pixelSize: theme.fontMeta }
+                T { text: "Normal"; color: theme.secondary; font.pixelSize: theme.fontMeta; x: slider.knob / 2 + slider.span * 19 / 39 - width / 2 }
+                T { text: "Higher"; color: theme.secondary; font.pixelSize: theme.fontMeta; anchors.right: parent.right }
             }
             T {
                 width: parent.width
                 visible: win.overlay === "priority" && (win.niceChoice < (win.menuInfo.nice || 0) || actions.needsSudo(win.menuKey))
                 text: "Raising a priority, or changing another user's process, is done through sudo."
-                color: theme.dim
-                font.pixelSize: theme.fontBody
+                color: theme.secondary
+                font.pixelSize: theme.fontMeta
                 wrapMode: Text.WordWrap
                 elide: Text.ElideNone
             }
             Row {
                 anchors.right: parent.right
                 spacing: Ui.sp(10)
-                Btn { text: "Cancel"; onClicked: win.overlay = "" }
+                Btn { text: "Cancel"; width: Math.max(implicitWidth, 112); onClicked: win.overlay = "" }
                 Btn {
                     text: "Change"
                     kind: "primary"
+                    width: Math.max(implicitWidth, 112)
                     enabled: win.niceChoice !== (win.menuInfo.nice || 0)
                     onClicked: { win.overlay = ""; actions.renice(win.menuKey, win.niceChoice) }
                 }
@@ -659,11 +585,13 @@ Window {
     }
 
     // ------------------------------------------------------------ confirmation
-    // The shell's ConfirmDialog look: accent border, Cancel focused.
+    // Folio's ConfirmDialog: a red edge for anything destructive, a quiet
+    // Cancel that has the keyboard focus (Enter cancels), the action solid.
     Sheet {
         open: win.prompt.type === "confirm"
-        cardBorder: theme.accent
-        cardWidth: Ui.sp(440)
+        cardBorder: win.prompt.destructive === false ? theme.accent : theme.red
+        cardColor: theme.background
+        cardWidth: 440
         onDismissed: actions.cancel()
         Column {
             width: parent.width
@@ -671,13 +599,13 @@ Window {
             Row {
                 width: parent.width
                 spacing: Ui.sp(10)
-                Icon { name: "alert"; color: theme.yellow; size: Ui.sp(20); anchors.verticalCenter: parent.verticalCenter }
+                Icon { name: "alert"; color: theme.yellow; size: 18; y: 1 }
                 T {
                     width: parent.width - Ui.sp(30)
                     text: win.prompt.title || ""
                     color: theme.bright
-                    font.pixelSize: theme.fontHeading
-                    font.weight: Font.Bold
+                    font.pixelSize: theme.fontDialog
+                    font.weight: Font.DemiBold
                     wrapMode: Text.WordWrap
                     elide: Text.ElideNone
                 }
@@ -687,14 +615,14 @@ Window {
                 text: win.prompt.message || ""
                 wrapMode: Text.WordWrap
                 elide: Text.ElideNone
-                lineHeight: 1.25
+                lineHeight: 1.4
             }
             T {
                 width: parent.width
                 visible: (win.prompt.note || "").length > 0
                 text: win.prompt.note || ""
-                color: theme.dim
-                font.pixelSize: theme.fontBody
+                color: theme.secondary
+                font.pixelSize: theme.fontLabel
                 elide: Text.ElideMiddle
             }
             Item { width: 1; height: Ui.sp(2) }
@@ -704,14 +632,14 @@ Window {
                 Btn {
                     id: cancelButton
                     text: "Cancel"
-                    kind: "primary"
-                    width: Math.max(implicitWidth, Ui.sp(96))
+                    width: Math.max(implicitWidth, 112)
                     onClicked: actions.cancel()
                 }
                 Btn {
+                    // Solid, not red: the edge already says it is destructive.
                     text: win.prompt.confirmLabel || "OK"
-                    kind: "danger"
-                    width: Math.max(implicitWidth, Ui.sp(96))
+                    kind: "primary"
+                    width: Math.max(implicitWidth, 112)
                     onClicked: actions.confirm()
                 }
             }
@@ -724,7 +652,8 @@ Window {
         open: win.prompt.type === "password"
         align: win.height < Ui.sp(700) ? "top" : "center"
         cardBorder: (win.prompt.error || "").length > 0 ? theme.red : theme.accent
-        cardWidth: Ui.sp(440)
+        cardColor: theme.background
+        cardWidth: 440
         onDismissed: actions.cancel()
         Column {
             width: parent.width
@@ -732,14 +661,14 @@ Window {
             Row {
                 spacing: Ui.sp(10)
                 Icon { name: "lock"; color: theme.accent; size: Ui.sp(20); anchors.verticalCenter: parent.verticalCenter }
-                T { text: win.prompt.title || ""; color: theme.bright; font.pixelSize: theme.fontHeading; font.weight: Font.Bold }
+                T { text: win.prompt.title || ""; color: theme.bright; font.pixelSize: theme.fontDialog; font.weight: Font.DemiBold }
             }
             T {
                 width: parent.width
                 text: win.prompt.message || ""
                 wrapMode: Text.WordWrap
                 elide: Text.ElideNone
-                lineHeight: 1.25
+                lineHeight: 1.4
             }
             SearchField {
                 id: passwordField
@@ -761,11 +690,11 @@ Window {
             Row {
                 anchors.right: parent.right
                 spacing: Ui.sp(10)
-                Btn { text: "Cancel"; width: Math.max(implicitWidth, Ui.sp(96)); onClicked: actions.cancel() }
+                Btn { text: "Cancel"; width: Math.max(implicitWidth, 112); onClicked: actions.cancel() }
                 Btn {
                     text: win.prompt.busy ? "Checking…" : (win.prompt.confirmLabel || "OK")
-                    kind: "danger"
-                    width: Math.max(implicitWidth, Ui.sp(96))
+                    kind: "primary"
+                    width: Math.max(implicitWidth, 112)
                     enabled: passwordField.text.length > 0 && !win.prompt.busy
                     onClicked: actions.submitPassword(passwordField.text)
                 }
@@ -784,8 +713,9 @@ Window {
         width: Math.min(toastText.implicitWidth + Ui.sp(32), parent.width - 2 * Ui.margin)
         height: toastText.implicitHeight + Ui.sp(22)
         color: theme.background
-        border.width: Ui.line
-        border.color: error ? theme.red : theme.accent
+        radius: Ui.menuRadius
+        border.width: 1
+        border.color: error ? theme.red : theme.menuBorder
         opacity: shown ? 1 : 0
         visible: opacity > 0
         Behavior on opacity { NumberAnimation { duration: 150 } }
@@ -823,15 +753,28 @@ Window {
                 else if (cmd === "select") { win.selectMode = true; processes.toggleSelected(key) }
                 else if (cmd === "pick") processes.select(key)
                 else if (cmd === "menu") win.overlay = arg
-                else if (cmd === "actions") win.openActions(key)
+                else if (cmd === "actions") devHoldLater(key, "main")
                 else if (cmd === "priority") { win.openActions(key); win.niceChoice = -5; win.overlay = "priority" }
-                else if (cmd === "signals") { win.openActions(key); win.overlay = "signals" }
+                else if (cmd === "signals") devHoldLater(key, "signals")
                 else if (cmd === "quit") actions.quit([key])
                 else if (cmd === "forcequit") actions.forceQuit([key])
                 else if (cmd === "confirm") actions.confirm()
                 else if (cmd === "scroll") win.devScroll = Number(arg)
             }
         }
+    }
+    // After the rows of a group opened in the same breath exist.
+    function devHoldLater(key, page) {
+        devHoldTimer.key = key
+        devHoldTimer.page = page
+        devHoldTimer.start()
+    }
+    Timer {
+        id: devHoldTimer
+        property string key
+        property string page
+        interval: 1800
+        onTriggered: { table.devHold(key); rowMenu.page = page }
     }
     property string devPage: ""
     property real devScroll: 0

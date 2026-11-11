@@ -1,19 +1,22 @@
 pragma Singleton
 import QtQuick
 
-// Sizes and small helpers shared by every component. All sizes go through
-// sp(), which follows the theme's spacing scale and font base size, like
-// the shell's Style.space().
+// Sizes and small helpers shared by every component.
 QtObject {
-    function sp(n) { return Math.round(n * theme.scale) }
+    // Sizes are plain pixels; sp() is where a scale would go.
+    function sp(n) { return Math.round(n) }
     function alpha(c, a) { return Qt.rgba(c.r, c.g, c.b, a) }
 
-    readonly property int margin: sp(16)
-    // Touch targets keep their minimum even when a theme shrinks the scale.
-    readonly property int rowHeight: prefs.comfortable ? Math.max(60, sp(60)) : Math.max(48, sp(48))
-    readonly property int headerHeight: Math.max(44, sp(44))
-    readonly property int controlHeight: Math.max(36, sp(36))
-    readonly property int line: Math.max(1, theme.borderWidth)
+    readonly property int margin: 16
+    readonly property int rowHeight: prefs.comfortable ? 60 : 48
+    readonly property int headerHeight: 44
+    // Visible controls are as tall as a touch target.
+    readonly property int controlHeight: 44
+    readonly property int line: 1
+    // Corners follow Hyprland's rounding, capped per kind; square on labwc.
+    readonly property int controlRadius: Math.min(4, theme.radius)
+    readonly property int menuRadius: Math.min(6, theme.radius)
+    readonly property int cardRadius: Math.min(10, theme.radius)
 
     function glyphColor(glyph) {
         switch (glyph) {
@@ -23,7 +26,7 @@ QtObject {
         case "calculator": return theme.magenta
         case "activity": return theme.accent
         case "cpu":
-        case "layers": return theme.dim
+        case "layers": return theme.secondary
         }
         return theme.foreground
     }

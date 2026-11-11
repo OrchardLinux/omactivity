@@ -1,24 +1,15 @@
 import QtQuick
 
-// "PROCESS ————————" section heading in the inspect panel.
+// "PROCESS" section heading: small, spaced capitals, nothing else.
 Item {
     property string title
-    implicitHeight: Ui.sp(30)
+    implicitHeight: 32
     T {
-        id: label
-        text: parent.title
-        color: theme.dim
-        font.pixelSize: theme.fontSmall
-        font.letterSpacing: 1.5
+        text: parent.title.toUpperCase()
+        color: theme.secondary
+        font.pixelSize: theme.fontLabel
+        font.letterSpacing: 1.3
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: Ui.sp(4)
-    }
-    Rectangle {
-        anchors.left: label.right
-        anchors.leftMargin: Ui.sp(10)
-        anchors.right: parent.right
-        anchors.verticalCenter: label.verticalCenter
-        height: Ui.line
-        color: theme.separator
+        anchors.bottomMargin: 6
     }
 }

@@ -1138,53 +1138,53 @@ private slots:
             f.write(data);
         };
         Theme theme;
-        theme.setPaths(dir.path(), dir.filePath(QStringLiteral("user-shell.toml")));
+        theme.setThemeDir(dir.path());
+        auto color = [&](const char *name) { return theme.property(name).value<QColor>(); };
         // No theme at all: the Tokyo Night values of the mockups.
-        QCOMPARE(theme.property("background").value<QColor>(), QColor("#1a1b26"));
-        QCOMPARE(theme.property("accent").value<QColor>(), QColor("#7aa2f7"));
-        QCOMPARE(theme.property("fontTitle").toInt(), 14);
-        QCOMPARE(theme.property("borderWidth").toInt(), 1);
+        QCOMPARE(color("background"), QColor("#1a1b26"));
+        QCOMPARE(color("surface"), QColor("#13141c"));
+        QCOMPARE(color("raised"), QColor("#24283b"));
+        QCOMPARE(color("accent"), QColor("#7aa2f7"));
+        QCOMPARE(color("secondary").name(), QStringLiteral("#7b819e")); // background 68 % toward foreground
+        QCOMPARE(color("accentForeground").name(), QStringLiteral("#000000"));
+        QCOMPARE(color("scrim").name(QColor::HexArgb), QStringLiteral("#8c000000")); // black at 55 %, not the background
+        QCOMPARE(color("line").name(QColor::HexArgb), QStringLiteral("#1fa9b1d6"));
+        QCOMPARE(color("tintStrong").name(QColor::HexArgb), QStringLiteral("#2e7aa2f7"));
+        QCOMPARE(color("redTint").name(QColor::HexArgb), QStringLiteral("#24f7768e"));
+        QVERIFY(!theme.property("light").toBool());
+        QCOMPARE(theme.property("radius").toInt(), 0); // square without Hyprland
+        QCOMPARE(theme.property("fontText").toInt(), 13);
 
-        put(QStringLiteral("colors.toml"), "# a light theme\nbackground = \"#fafafa\"\nforeground = '#202020'\naccent = \"#aa3300\"\nred = \"#cc0000\"\n");
-        put(QStringLiteral("shell.toml"),
-            "[controls]\nnormal-color = \"accent\"   # a role\nnormal-fill-alpha = 0.10\nnormal-border = \"hyprland.active-border\"\n"
-            "normal-border-width = 2\nnormal-border-alpha = 1.0\nselected-fill-alpha = 0.5\n\n"
-            "[hyprland]\nactive-border = \"#123456 #654321 45deg\"\n\n[font]\nbase-size = 18\nheading = 40\n\n[spacing]\nscale = 1.5\n");
+        // Only colors.toml counts: a shell.toml beside it changes nothing.
+        put(QStringLiteral("colors.toml"),
+            "# a light theme\nmode = \"light\"\nbackground = \"#fafafa\"\nforeground = '#202020'\naccent = \"#aa3300\"\nred = \"#cc0000\"\n"
+            "lighter_background = \"#fafafa\"\n");
+        put(QStringLiteral("shell.toml"), "[controls]\nnormal-color = \"#00ff00\"\n[font]\nbase-size = 18\n");
         QSignalSpy changed(&theme, &Theme::changed);
         theme.reload();
         QCOMPARE(changed.count(), 1);
-        QCOMPARE(theme.property("background").value<QColor>(), QColor("#fafafa"));
-        QCOMPARE(theme.property("foreground").value<QColor>(), QColor("#202020"));
-        QCOMPARE(theme.property("red").value<QColor>(), QColor("#cc0000"));
-        QColor fill("#aa3300");
-        fill.setAlphaF(0.10f);
-        QCOMPARE(theme.property("normalFill").value<QColor>(), fill);
-        // A reference to another key, of which the first gradient stop counts.
-        QCOMPARE(theme.property("normalBorder").value<QColor>(), QColor("#123456"));
-        QCOMPARE(theme.property("borderWidth").toInt(), 2);
-        QCOMPARE(theme.property("selectedFillAlpha").toDouble(), 0.5);
-        QCOMPARE(theme.property("fontBody").toInt(), 18);
-        QCOMPARE(theme.property("fontTitle").toInt(), 21);
-        QCOMPARE(theme.property("fontHeading").toInt(), 40); // pinned
-        QCOMPARE(theme.property("scale").toDouble(), 1.5 * 18 / 12);
+        QVERIFY(theme.property("light").toBool());
+        QCOMPARE(color("background"), QColor("#fafafa"));
+        QCOMPARE(color("foreground"), QColor("#202020"));
+        QCOMPARE(color("red"), QColor("#cc0000"));
+        QCOMPARE(theme.property("fontText").toInt(), 13);
+        QCOMPARE(color("quiet").name(QColor::HexArgb), QStringLiteral("#0d202020"));
+        // A dark accent takes white text.
+        QCOMPARE(color("accentForeground").name(), QStringLiteral("#ffffff"));
         // A light theme without dark_background still gets a footer colour
-        // near its own background.
-        QVERIFY(theme.property("surface").value<QColor>().lightness() > 150);
+        // near its own background, and secondary text that reads on it.
+        QVERIFY(color("surface").lightness() > 150);
+        QVERIFY(Theme::luminance(color("secondary")) < 0.2);
+        // lighter_background equal to the background would hide the icon tile.
+        QVERIFY(color("raised") != color("background"));
 
-        // The user's own shell.toml wins over the theme's.
-        put(QStringLiteral("user-shell.toml"), "[font]\nbase-size = 24\n[spacing]\nscale-with-font = false\n");
-        theme.reload();
-        QCOMPARE(theme.property("fontBody").toInt(), 24);
-        QCOMPARE(theme.property("scale").toDouble(), 1.5);
-        QCOMPARE(theme.property("borderWidth").toInt(), 2);
+        QCOMPARE(Theme::roundingFrom("{\"option\": \"decoration:rounding\", \"int\": 8, \"set\": true}"), 8);
+        QCOMPARE(Theme::roundingFrom("no such option"), 0);
 
-        // The real theme file of Omarchy parses to the mockup's control values.
-        const QHash<QString, QString> shell = Theme::parseToml(
-            "[controls]\nnormal-color        = \"#a9b1d6\"\nnormal-fill-alpha   = 0.04\nnormal-border-width = 1\n# c\n[font]\nbase-size = 12\n# caption       = 10\n");
-        QCOMPARE(shell.value("controls.normal-color"), QStringLiteral("#a9b1d6"));
-        QCOMPARE(shell.value("controls.normal-fill-alpha"), QStringLiteral("0.04"));
-        QCOMPARE(shell.value("font.base-size"), QStringLiteral("12"));
-        QVERIFY(!shell.contains("font.caption"));
+        const QHash<QString, QString> parsed = Theme::parseToml("accent = \"#7aa2f7\"  # c\nmode = light\n# muted = \"#000000\"\n");
+        QCOMPARE(parsed.value("accent"), QStringLiteral("#7aa2f7"));
+        QCOMPARE(parsed.value("mode"), QStringLiteral("light"));
+        QVERIFY(!parsed.contains("muted"));
     }
 
     // ------------------------------------------------------------ actions
@@ -1353,7 +1353,7 @@ private slots:
         Tree tree;
         Theme theme;
         QTemporaryDir noTheme;
-        theme.setPaths(noTheme.path(), noTheme.filePath(QStringLiteral("shell.toml"))); // the built-in look, scale 1
+        theme.setThemeDir(noTheme.path()); // the built-in look
         Prefs prefs;
         QVERIFY(!prefs.hintSeen()); // a first start shows how the list works
         ProtectedList prot;

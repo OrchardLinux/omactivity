@@ -13,9 +13,9 @@ Rectangle {
     signal unavailablePicked(string id)
 
     color: theme.surface
-    implicitHeight: Ui.sp(54)
+    implicitHeight: 56
 
-    Rectangle { width: parent.width; height: Ui.line; color: theme.separator }
+    Rectangle { width: parent.width; height: Ui.line; color: theme.line }
     Row {
         anchors.fill: parent
         Repeater {
@@ -26,7 +26,7 @@ Rectangle {
                 readonly property bool on: processes.tab === modelData.id
                 width: root.width / root.tabs.length
                 height: root.height
-                color: on ? theme.selectedFill : "transparent"
+                color: on ? theme.tint : "transparent"
                 Column {
                     anchors.centerIn: parent
                     spacing: Ui.sp(3)
@@ -38,8 +38,8 @@ Rectangle {
                     }
                     T {
                         text: tab.modelData.title
-                        font.pixelSize: theme.fontSmall
-                        font.weight: tab.on ? Font.Bold : Font.Normal
+                        font.pixelSize: theme.fontLabel
+                        font.weight: tab.on ? Font.DemiBold : Font.Normal
                         color: !tab.modelData.enabled ? theme.muted : tab.on ? theme.bright : theme.foreground
                         anchors.horizontalCenter: parent.horizontalCenter
                     }

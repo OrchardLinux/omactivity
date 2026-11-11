@@ -25,9 +25,9 @@ Rectangle {
     property var colorFor: null // function(value) -> color, overrides barColor
     property real floor: 0 // least bar height in px: a sample of zero still shows as a sample
 
-    color: Ui.alpha(theme.background, 0.0)
-    border.width: Ui.line
-    border.color: theme.separator
+    // A box without a frame, a shade darker than what it sits on.
+    color: theme.well
+    radius: Ui.controlRadius
     clip: true
 
     function heightFor(v) {
@@ -37,7 +37,7 @@ Rectangle {
     Row {
         id: bars
         anchors.fill: parent
-        anchors.margins: Ui.sp(3)
+        anchors.margins: 4
         readonly property real slot: width / root.capacity
         Repeater {
             model: root.capacity

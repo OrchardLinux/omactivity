@@ -13,9 +13,12 @@ Item {
     // Set by a long press: the finger that opened the menu must not go on
     // scrolling the list underneath until it lifts.
     property bool heldForMenu: false
+    // While the long-press menu shows a lifted row, the rows under it keep their places.
+    property bool frozen: false
 
     signal rowTapped(string key, int kind)
-    signal rowMenu(string key)
+    // rowY: the row's top edge in the table; value and title: its number in the sorted column
+    signal rowMenu(string key, real rowY, string value, string title)
 
     readonly property var cols: processes.columns
     readonly property real colsWidth: {
@@ -46,6 +49,20 @@ Item {
 
     function scrollTo(y) { list.contentY = y }
 
+    function menuFor(row) {
+        var at = 0
+        for (var i = 0; i < cols.length; i++)
+            if (cols[i].key === processes.sortKey)
+                at = i
+        rowMenu(row.key, row.mapToItem(table, 0, 0).y, row.cells[at] || "", cols.length > 0 ? cols[at].title : "")
+    }
+    // Development (--show actions:NAME): the menu as a long press on that row opens it.
+    function devHold(key) {
+        var item = list.itemAtIndex(processes.indexOfKey(key))
+        if (item)
+            menuFor(item)
+    }
+
     onColsChanged: headerFlick.contentX = 0
 
     // What a sideways drag on a row moves; the header follows it.
@@ -58,14 +75,14 @@ Item {
     Binding {
         target: processes
         property: "hold"
-        value: list.dragging || list.flicking || table.rowPressed
+        value: list.dragging || list.flicking || table.rowPressed || table.frozen
     }
 
     Rectangle {
         id: header
         width: parent.width
         height: Ui.headerHeight
-        color: theme.surface
+        color: theme.background
         z: 2
 
         Item {
@@ -78,9 +95,9 @@ Item {
                 spacing: Ui.sp(6)
                 T {
                     text: "Process Name"
-                    font.pixelSize: theme.fontSubtitle
-                    color: processes.sortKey === "name" ? theme.accent : theme.foreground
-                    font.weight: processes.sortKey === "name" ? Font.Bold : Font.Normal
+                    font.pixelSize: theme.fontMeta
+                    color: processes.sortKey === "name" ? theme.bright : theme.secondary
+                    font.weight: processes.sortKey === "name" ? Font.DemiBold : Font.Normal
                 }
                 Icon {
                     visible: processes.sortKey === "name"
@@ -124,9 +141,9 @@ Item {
                             spacing: Ui.sp(4)
                             T {
                                 text: head.modelData.title
-                                font.pixelSize: theme.fontSubtitle
-                                color: head.sorted ? theme.accent : theme.foreground
-                                font.weight: head.sorted ? Font.Bold : Font.Normal
+                                font.pixelSize: theme.fontMeta
+                                color: head.sorted ? theme.bright : theme.secondary
+                                font.weight: head.sorted ? Font.DemiBold : Font.Normal
                             }
                             Icon {
                                 visible: head.sorted
@@ -148,11 +165,10 @@ Item {
             anchors.rightMargin: Ui.sp(1)
             anchors.verticalCenter: parent.verticalCenter
             name: "chevron-right"
-            color: theme.dim
+            color: theme.secondary
             size: Ui.sp(11)
         }
-        Rectangle { width: parent.width; height: Ui.line; color: theme.separator }
-        Rectangle { width: parent.width; height: Ui.line; color: theme.separator; anchors.bottom: parent.bottom }
+        Rectangle { width: parent.width; height: 1; color: theme.line; anchors.bottom: parent.bottom }
     }
 
     T {
@@ -160,8 +176,8 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         y: header.height + Ui.sp(14)
         text: list.contentY < -Ui.sp(64) ? "Release to refresh" : "Pull to refresh"
-        color: theme.dim
-        font.pixelSize: theme.fontBody
+        color: theme.secondary
+        font.pixelSize: theme.fontMeta
         opacity: Math.max(0, Math.min(1, -list.contentY / Ui.sp(64)))
     }
 
@@ -171,7 +187,7 @@ Item {
         text: processes.search.length > 0 ? "No process matches “" + processes.search + "”"
             : processes.view === "selected" ? "No rows selected"
             : processes.view === "ports" ? "None of your own processes listens on a port" : "Nothing to show in this view"
-        color: theme.dim
+        color: theme.secondary
         width: Math.min(implicitWidth, table.width - 2 * Ui.margin)
     }
 
@@ -185,15 +201,15 @@ Item {
         height: visible ? portsNoteText.implicitHeight + Ui.sp(20) : 0
         color: theme.surface
         z: 2
-        Rectangle { width: parent.width; height: Ui.line; color: theme.separator }
+        Rectangle { width: parent.width; height: Ui.line; color: theme.line }
         T {
             id: portsNoteText
             x: Ui.margin
             y: Ui.sp(10)
             width: parent.width - 2 * Ui.margin
             text: "Also listening, owned by other users (which process is not readable without root):\n" + processes.otherPorts
-            color: theme.dim
-            font.pixelSize: theme.fontBody
+            color: theme.secondary
+            font.pixelSize: theme.fontMeta
             wrapMode: Text.WordWrap
             elide: Text.ElideNone
             maximumLineCount: 4
@@ -272,14 +288,7 @@ Item {
 
                 Rectangle {
                     anchors.fill: parent
-                    color: row.selected ? theme.selectedFill : rowMa.pressed ? theme.normalFill : "transparent"
-                }
-                Rectangle { visible: row.selected; width: parent.width; height: Ui.line; color: theme.normalBorder }
-                Rectangle {
-                    width: parent.width
-                    height: Ui.line
-                    anchors.bottom: parent.bottom
-                    color: row.selected ? theme.normalBorder : Ui.alpha(theme.foreground, 0.06)
+                    color: row.selected ? theme.tintStrong : rowMa.pressed ? theme.pressed : "transparent"
                 }
 
                 MouseArea {
@@ -322,7 +331,7 @@ Item {
                     onPressAndHold: {
                         if (!drag.active && !travelled && row.actionable) {
                             table.heldForMenu = true
-                            table.rowMenu(row.key)
+                            table.menuFor(row)
                         }
                     }
                 }
@@ -338,7 +347,7 @@ Item {
                     Icon {
                         visible: table.selectMode && row.kind !== 2
                         name: row.selected ? "check-square" : "square"
-                        color: row.selected ? theme.accent : theme.dim
+                        color: row.selected ? theme.accent : theme.secondary
                         size: Ui.sp(18)
                         anchors.verticalCenter: parent.verticalCenter
                     }
@@ -350,7 +359,7 @@ Item {
                             visible: row.expandable
                             anchors.centerIn: parent
                             name: row.expanded ? "chevron-down" : "chevron-right"
-                            color: theme.dim
+                            color: theme.secondary
                             size: Ui.sp(16)
                         }
                     }
@@ -366,7 +375,7 @@ Item {
                         text: row.name
                         width: Math.min(implicitWidth, Math.max(Ui.sp(40), lead.width - x - badges.width - (badges.width > 0 ? lead.spacing : 0)))
                         color: row.selected ? theme.accent : row.kind === 0 && row.inApps ? theme.foreground : theme.bright
-                        font.weight: row.kind !== 0 ? Font.Bold : Font.Normal
+                        font.weight: row.kind !== 0 ? Font.DemiBold : Font.Normal
                         anchors.verticalCenter: parent.verticalCenter
                     }
                     Row {
@@ -377,26 +386,24 @@ Item {
                             visible: row.kind === 2 || (row.kind === 1 && row.expandable && !row.expanded)
                             width: countText.implicitWidth + Ui.sp(12)
                             height: Ui.sp(20)
-                            color: "transparent"
-                            border.width: Ui.line
-                            border.color: theme.muted
+                            color: theme.quiet
+                            radius: Ui.controlRadius
                             anchors.verticalCenter: parent.verticalCenter
-                            T { id: countText; anchors.centerIn: parent; text: row.count; color: theme.dim; font.pixelSize: theme.fontSmall }
+                            T { id: countText; anchors.centerIn: parent; text: row.count; color: theme.secondary; font.pixelSize: theme.fontLabel }
                         }
                         Rectangle {
                             visible: row.paused
                             width: pausedRow.implicitWidth + Ui.sp(12)
                             height: Ui.sp(20)
-                            color: Ui.alpha(theme.yellow, 0.1)
-                            border.width: Ui.line
-                            border.color: theme.yellow
+                            color: theme.yellowTint
+                            radius: Ui.controlRadius
                             anchors.verticalCenter: parent.verticalCenter
                             Row {
                                 id: pausedRow
                                 anchors.centerIn: parent
                                 spacing: Ui.sp(4)
                                 Icon { name: "pause"; color: theme.yellow; size: Ui.sp(11); anchors.verticalCenter: parent.verticalCenter }
-                                T { text: "Paused"; color: theme.yellow; font.pixelSize: theme.fontSmall; visible: !table.narrow }
+                                T { text: "Paused"; color: theme.yellow; font.pixelSize: theme.fontLabel; visible: !table.narrow }
                             }
                         }
                         Rectangle {
@@ -404,22 +411,21 @@ Item {
                             visible: row.blocked.length > 0
                             width: blockedText.implicitWidth + Ui.sp(12)
                             height: Ui.sp(20)
-                            color: Ui.alpha(theme.orange, 0.1)
-                            border.width: Ui.line
-                            border.color: theme.orange
+                            color: theme.orangeTint
+                            radius: Ui.controlRadius
                             anchors.verticalCenter: parent.verticalCenter
                             T {
                                 id: blockedText
                                 anchors.centerIn: parent
                                 text: row.blocked === "io" ? "I/O wait" : "CPU wait"
                                 color: theme.orange
-                                font.pixelSize: theme.fontSmall
+                                font.pixelSize: theme.fontLabel
                             }
                         }
                         Icon {
                             visible: row.isProtected
                             name: "shield"
-                            color: theme.dim
+                            color: theme.secondary
                             size: Ui.sp(15)
                             anchors.verticalCenter: parent.verticalCenter
                         }
@@ -427,18 +433,17 @@ Item {
                             visible: row.notResponding && !table.narrow
                             text: "Not responding ·"
                             color: theme.red
-                            font.pixelSize: theme.fontBody
+                            font.pixelSize: theme.fontMeta
                             anchors.verticalCenter: parent.verticalCenter
                         }
                         Rectangle {
                             visible: row.notResponding
                             width: forceText.implicitWidth + Ui.sp(14)
                             height: Ui.sp(26)
-                            color: Ui.alpha(theme.red, forceMa.pressed ? 0.3 : 0.12)
-                            border.width: Ui.line
-                            border.color: theme.red
+                            color: forceMa.pressed ? Ui.alpha(theme.red, 0.3) : theme.redTint
+                            radius: Ui.controlRadius
                             anchors.verticalCenter: parent.verticalCenter
-                            T { id: forceText; anchors.centerIn: parent; text: "Force Quit"; color: theme.red; font.pixelSize: theme.fontBody }
+                            T { id: forceText; anchors.centerIn: parent; text: "Force Quit"; color: theme.red; font.pixelSize: theme.fontMeta }
                             MouseArea {
                                 id: forceMa
                                 anchors.fill: parent
@@ -470,7 +475,7 @@ Item {
                                 horizontalAlignment: leftAligned ? Text.AlignLeft : Text.AlignRight
                                 text: row.cells[index] || ""
                                 color: text === "—" ? theme.muted : index === 0 && row.hot ? theme.bright : theme.foreground
-                                font.weight: index === 0 && row.hot ? Font.Bold : Font.Normal
+                                font.weight: index === 0 && row.hot ? Font.DemiBold : Font.Normal
                             }
                         }
                     }

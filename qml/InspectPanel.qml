@@ -11,7 +11,7 @@ Rectangle {
     readonly property string blocked: usable ? actions.disabledReason(inspector.key) : ""
 
     signal closeRequested()
-    signal moreRequested()
+    signal moreRequested(real right, real bottom) // the More button's corner, in the window
     signal jump(string key)
 
     color: theme.surface
@@ -31,21 +31,23 @@ Rectangle {
         }
     }
 
+    // On the left edge when it is a side panel; a sheet draws its own top line.
     Column {
         id: head
         x: Ui.margin
         y: Ui.margin
         width: parent.width - 2 * Ui.margin
-        spacing: Ui.sp(12)
+        spacing: 12
 
         Item {
             width: parent.width
-            height: Ui.sp(44)
+            height: 44
             Rectangle {
                 id: iconBox
-                width: Ui.sp(40)
-                height: Ui.sp(40)
+                width: 44
+                height: 44
                 color: theme.raised
+                radius: Ui.controlRadius
                 anchors.verticalCenter: parent.verticalCenter
                 Icon { anchors.centerIn: parent; name: root.info.glyph || "app"; color: Ui.glyphColor(root.info.glyph); size: Ui.sp(22) }
             }
@@ -60,16 +62,16 @@ Rectangle {
                     width: parent.width
                     text: root.info.title || ""
                     color: theme.bright
-                    font.pixelSize: theme.fontHeading
-                    font.weight: Font.Bold
+                    font.pixelSize: theme.fontTitle
+                    font.weight: Font.DemiBold
                 }
                 T {
                     width: parent.width
                     text: "PID " + (root.info.pid || "") + " · " + (root.info.user || "")
                           + (root.info.appName && root.info.appName !== root.info.title ? " · " + root.info.appName : "")
                           + (root.info.isApp && root.info.count > 1 ? " · " + root.info.count + " processes" : "")
-                    color: theme.dim
-                    font.pixelSize: theme.fontBody
+                    color: theme.secondary
+                    font.pixelSize: theme.fontMeta
                 }
             }
             Btn {
@@ -105,7 +107,10 @@ Rectangle {
                 id: moreButton
                 icon: "more"
                 enabled: root.usable && root.blocked.length === 0
-                onClicked: root.moreRequested()
+                onClicked: {
+                    var p = moreButton.mapToItem(null, moreButton.width, moreButton.height)
+                    root.moreRequested(p.x, p.y)
+                }
             }
         }
         T {
@@ -116,8 +121,8 @@ Rectangle {
             text: root.info.ended ? "This process has ended."
                 : root.blocked.length > 0 ? root.blocked
                 : "Protected: quitting it asks first."
-            color: root.info.ended || root.blocked.length > 0 ? theme.yellow : theme.dim
-            font.pixelSize: theme.fontBody
+            color: root.info.ended || root.blocked.length > 0 ? theme.yellow : theme.secondary
+            font.pixelSize: theme.fontMeta
         }
 
         Segmented {
@@ -187,16 +192,15 @@ Rectangle {
                 Rectangle {
                     width: parent.width
                     height: cmdText.implicitHeight + Ui.sp(20)
-                    color: theme.background
-                    border.width: Ui.line
-                    border.color: theme.separator
+                    color: theme.well
+                    radius: Ui.controlRadius
                     T {
                         id: cmdText
                         x: Ui.sp(12)
                         y: Ui.sp(10)
                         width: parent.width - Ui.sp(24)
                         text: root.info.cmdline || ""
-                        font.pixelSize: theme.fontSubtitle
+                        font.pixelSize: theme.fontMeta
                         wrapMode: Text.WrapAnywhere
                         elide: Text.ElideNone
                         // The whole command line, however long.
@@ -212,11 +216,11 @@ Rectangle {
                         id: cpuBig
                         anchors.verticalCenter: parent.verticalCenter
                         spacing: Ui.sp(2)
-                        T { text: (root.info.cpu || "0.0") + "%"; color: theme.bright; font.pixelSize: theme.fontDisplay; font.weight: Font.Bold }
+                        T { text: (root.info.cpu || "0.0") + "%"; color: theme.bright; font.pixelSize: theme.fontDisplay; font.weight: Font.DemiBold }
                         T {
                             text: (root.info.cpuTime || "") + " · " + (root.info.threads || 0) + " thr · nice " + (root.info.nice || 0)
-                            color: theme.dim
-                            font.pixelSize: theme.fontBody
+                            color: theme.secondary
+                            font.pixelSize: theme.fontMeta
                         }
                     }
                     BarGraph {
@@ -271,7 +275,7 @@ Rectangle {
                 T {
                     visible: inspector.filesNote.length > 0 || (inspector.filesLoaded && filesPage.shown.length === 0)
                     text: inspector.filesNote.length > 0 ? inspector.filesNote : "Nothing open"
-                    color: theme.dim
+                    color: theme.secondary
                     topPadding: Ui.sp(12)
                 }
                 Repeater {
@@ -286,7 +290,7 @@ Rectangle {
                             text: fileRow.modelData.fd
                             color: theme.muted
                             width: Ui.sp(34)
-                            font.pixelSize: theme.fontSubtitle
+                            font.pixelSize: theme.fontMeta
                             anchors.top: fileText.top
                         }
                         T {
@@ -295,12 +299,11 @@ Rectangle {
                             anchors.right: parent.right
                             y: Ui.sp(7)
                             text: fileRow.modelData.text + (fileRow.modelData.detail ? "   " + fileRow.modelData.detail : "")
-                            color: fileRow.modelData.kind === "socket" ? theme.accent : fileRow.modelData.kind === "file" ? theme.foreground : theme.dim
-                            font.pixelSize: theme.fontSubtitle
+                            color: fileRow.modelData.kind === "socket" ? theme.accent : fileRow.modelData.kind === "file" ? theme.foreground : theme.secondary
+                            font.pixelSize: theme.fontMeta
                             wrapMode: Text.WrapAnywhere
                             maximumLineCount: 3
                         }
-                        Rectangle { width: parent.width; height: Ui.line; color: Ui.alpha(theme.foreground, 0.06); anchors.bottom: parent.bottom }
                     }
                 }
             }
@@ -318,8 +321,8 @@ Rectangle {
                     wrapMode: Text.WordWrap
                     elide: Text.ElideNone
                     text: "Environment variables can hold passwords and tokens, so they stay hidden until you ask."
-                    color: theme.dim
-                    font.pixelSize: theme.fontBody
+                    color: theme.secondary
+                    font.pixelSize: theme.fontMeta
                 }
                 Btn {
                     visible: !inspector.environmentLoaded
@@ -330,7 +333,7 @@ Rectangle {
                 T {
                     visible: inspector.environmentNote.length > 0
                     text: inspector.environmentNote
-                    color: theme.dim
+                    color: theme.secondary
                     topPadding: Ui.sp(6)
                 }
                 Repeater {
@@ -341,17 +344,16 @@ Rectangle {
                         readonly property int eq: modelData.indexOf("=")
                         width: envPage.width
                         height: envName.implicitHeight + envValue.implicitHeight + Ui.sp(14)
-                        T { id: envName; y: Ui.sp(6); text: envRow.modelData.substring(0, envRow.eq); color: theme.accent; font.pixelSize: theme.fontSubtitle; width: parent.width }
+                        T { id: envName; y: Ui.sp(6); text: envRow.modelData.substring(0, envRow.eq); color: theme.accent; font.pixelSize: theme.fontMeta; width: parent.width }
                         T {
                             id: envValue
                             anchors.top: envName.bottom
                             width: parent.width
                             text: envRow.modelData.substring(envRow.eq + 1)
-                            font.pixelSize: theme.fontSubtitle
+                            font.pixelSize: theme.fontMeta
                             wrapMode: Text.WrapAnywhere
                             maximumLineCount: 4
                         }
-                        Rectangle { width: parent.width; height: Ui.line; color: Ui.alpha(theme.foreground, 0.06); anchors.bottom: parent.bottom }
                     }
                 }
             }
@@ -365,7 +367,7 @@ Rectangle {
                 T {
                     visible: inspector.children.length === 0
                     text: "No child processes"
-                    color: theme.dim
+                    color: theme.secondary
                     topPadding: Ui.sp(12)
                 }
                 Repeater {
@@ -375,7 +377,7 @@ Rectangle {
                         required property var modelData
                         width: childrenPage.width
                         height: Math.max(48, Ui.sp(48))
-                        Rectangle { anchors.fill: parent; color: childMa.pressed ? theme.normalFill : "transparent" }
+                        Rectangle { anchors.fill: parent; color: childMa.pressed ? theme.pressed : "transparent" }
                         T {
                             anchors.left: parent.left
                             anchors.right: childNumbers.left
@@ -389,10 +391,9 @@ Rectangle {
                             anchors.right: parent.right
                             anchors.verticalCenter: parent.verticalCenter
                             text: childRow.modelData.cpu + "%   " + childRow.modelData.memory + "   " + childRow.modelData.pid
-                            color: theme.dim
-                            font.pixelSize: theme.fontSubtitle
+                            color: theme.secondary
+                            font.pixelSize: theme.fontMeta
                         }
-                        Rectangle { width: parent.width; height: Ui.line; color: Ui.alpha(theme.foreground, 0.06); anchors.bottom: parent.bottom }
                         MouseArea { id: childMa; anchors.fill: parent; onClicked: root.jump(childRow.modelData.key) }
                     }
                 }

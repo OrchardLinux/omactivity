@@ -5,6 +5,7 @@ Item {
     property alias text: input.text
     property string placeholder: "Search"
     property bool password: false
+    property color fill: theme.surface
     property string leadingIcon: "search"
     readonly property bool editing: input.activeFocus
     signal accepted()
@@ -16,15 +17,15 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        radius: theme.radius
-        color: theme.normalFill
-        border.width: Ui.line
-        border.color: input.activeFocus ? theme.accent : theme.normalBorder
+        radius: Ui.controlRadius
+        color: root.fill
+        border.width: 1
+        border.color: input.activeFocus ? theme.accent : theme.fieldBorder
     }
     Icon {
         id: lead
         name: root.leadingIcon
-        color: theme.dim
+        color: theme.secondary
         size: Ui.sp(18)
         anchors.left: parent.left
         anchors.leftMargin: Ui.sp(12)
@@ -41,7 +42,7 @@ Item {
         selectionColor: Ui.alpha(theme.accent, 0.45)
         selectedTextColor: theme.bright
         font.family: theme.fontFamily
-        font.pixelSize: theme.fontTitle
+        font.pixelSize: theme.fontText
         clip: true
         echoMode: root.password ? TextInput.Password : TextInput.Normal
         inputMethodHints: root.password ? Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText | Qt.ImhSensitiveData
@@ -51,7 +52,7 @@ Item {
             anchors.fill: parent
             visible: input.text.length === 0 && input.preeditText.length === 0
             text: root.placeholder
-            color: theme.dim
+            color: theme.secondary
         }
     }
     // The whole field takes the tap, which also brings up the on-screen keyboard.
@@ -67,7 +68,7 @@ Item {
         width: height
         height: parent.height
         anchors.right: parent.right
-        Icon { anchors.centerIn: parent; name: "x"; color: theme.dim; size: Ui.sp(16) }
+        Icon { anchors.centerIn: parent; name: "x"; color: theme.secondary; size: Ui.sp(16) }
         MouseArea { anchors.fill: parent; onClicked: input.text = "" }
     }
 }

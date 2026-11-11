@@ -32,7 +32,7 @@ Why not Rust for the collector:
 - **UI (QML).** Tabs, list, search, inspect sheet. Reads only the models. Icons and line graphs are drawn by small C++ items, not `QtQuick.Shapes`: Omarchy A runs Qt Quick with the software renderer on boards without a GPU, and there shapes are not clipped to the list they scroll in.
 - **Recorded trees.** `OMACTIVITY_PROC` and `OMACTIVITY_SYS` point the app at a recorded tree (tests, pictures). Every action is then disabled: the PIDs of a recording mean something else on the machine showing it.
 - **Root actions through `sudo`.** Acting on a process owned by root or another user, or raising a priority (nice below 0), runs `sudo kill` or `sudo renice`. The app first tries `sudo -n`; only when sudo needs a password does it show its own password field (on-screen keyboard) and pass the password to `sudo -S` on stdin, never on the command line or to disk. sudo's own timestamp then covers further actions for a few minutes (5 by default) while the app stays open. Before sending, the app re-reads the PID's start time from `/proc/PID/stat` and stops if it changed, so a recycled PID is never hit. This needs the user to have sudo rights (`wheel`, the Omarchy default); without them, these actions are disabled with a note saying who owns the process.
-- **Theme.** Everything visual comes from the current Omarchy theme (`~/.local/state/omarchy/current/theme`, the path the shell reads), so the app looks like a shell panel and nothing is hard-coded: colours from its `colors.toml`; control styling from its `shell.toml`, merged with the user's `~/.config/omarchy/shell.toml` the way the shell's `Color.qml` and `Style.qml` do it. That covers corner radius, border widths and alphas, fill alphas for the normal, pressed and selected states, spacing and the type scale. Font: the `monospace` fontconfig alias that `omarchy font set` writes, like the shell. Reloaded on theme change. The mockups (`omactivity.pen`) use the Tokyo Night values.
+- **Theme.** The look follows Folio, Omarchy's file manager (see `DESIGN-UPDATE.md`): only the palette of the current Omarchy theme's `colors.toml` is read (`~/.local/state/omarchy/current/theme`, then `~/.config/omarchy/current/theme`), and every translucent fill and line is derived from it with fixed alphas. Controls are fills, not outlines. Font: the `monospace` fontconfig alias that `omarchy font set` writes, at 13 px. Corners follow Hyprland's `decoration:rounding` and are square elsewhere (labwc). Reloaded when the theme changes; without a theme, Tokyo Night.
 - **Packaging.** qmake (`qmake6`) like Omacalc. Runtime dependencies `qt6-base` (which brings Qt D-Bus), `qt6-declarative` and `wayland` (libwayland-client, for closing windows). Ships a `.desktop` file, an icon and the protected-process list; builds for aarch64 and armv7h.
 
 Why not reuse btop's collectors: btop's collection code is tied to its global config and terminal drawing, and the parts we need (per-process stat, status, io, smaps_rollup) are a few hundred lines of plain `/proc` parsing. Owning them keeps the app small and lets the Apps view group by cgroup, which btop doesn't do.
@@ -238,8 +238,8 @@ Another user's `fd`, `environ` and `io` can't be read without root. Those tabs a
 **Touch.**
 
 - Rows at least 48 px tall at default scale, column headers 44 px; nothing needs hover.
-- No swipe actions on rows: a sideways drag on a row scrolls the columns, like dragging the header. Quit is the toolbar button and in the inspect sheet; Force Quit and the other actions are in the inspect sheet and the long-press menu. (The mockup `iphone6-cpu-swipe-actions.png` shows the swipe buttons that were tried and dropped.)
-- Long-press: menu with all actions. The finger that opened it does not go on scrolling the list underneath.
+- No swipe actions on rows: a sideways drag on a row scrolls the columns, like dragging the header. Quit is the toolbar button and in the inspect sheet; Force Quit and the other actions are in the inspect sheet and the long-press menu.
+- Long-press: the row is lifted above a dark scrim and a compact menu with all actions opens next to it (a row of four icons plus entries on a phone, entries only elsewhere; Send Signal opens its list as a second menu). The finger that opened it does not go on scrolling the list underneath, and the rows behind keep their places while the menu is open.
 - Until a process has been opened once, a line above the footer says how the list works (tap, hold, drag sideways, where the columns are).
 - Select mode for several rows: tap **Select**, then tap rows; actions apply to all.
 - Pull down on the list to refresh now. Pinch or a toggle switches between compact and comfortable rows.
@@ -280,7 +280,7 @@ Another user's `fd`, `environ` and `io` can't be read without root. Those tabs a
 - [ ] Force Quit on labwc shows the logout warning first.
 - [ ] With a memory hog filling RAM until swap is full, the app opens from the bar in under 2 s and kills the hog.
 - [ ] Collector under 2 % of one core at the 2 s rate (memory: see Under memory pressure).
-- [ ] Theme switch restyles the open app: colours and the control styling from `shell.toml`.
+- [ ] Theme switch restyles the open app, to a light theme and back, with readable secondary text.
 - [ ] On the iPhone 6 the app opens in the narrow layout; inspect opens as a sheet; the long-press menu's Quit and Force Quit work one-handed in portrait.
 - [ ] Energy shows the battery and who prevents sleep; Disk shows a copy's bytes climbing; Network shows a browser's connections and the traffic graph moving.
 - [ ] A process listening on a port is found by searching the port number.

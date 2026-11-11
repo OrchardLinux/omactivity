@@ -1,5 +1,8 @@
 import QtQuick
 
+// Buttons are fills, not outlines. normal: a quiet fill. primary: solid
+// accent, one per surface. danger: a red tint. Without a text the button is
+// an icon alone on nothing, unless flat is turned off.
 Item {
     id: root
     property string text
@@ -8,55 +11,70 @@ Item {
     property string kind: "normal" // normal, primary, danger
     property bool selected: false
     property bool busy: false
-    readonly property color tint: kind === "primary" ? theme.accent : kind === "danger" ? theme.red : theme.foreground
+    property bool flat: text.length === 0
     readonly property bool pressed: ma.pressed
+    readonly property color ink: kind === "primary" ? theme.accentForeground : kind === "danger" ? theme.red
+                                 : selected ? theme.bright : theme.foreground
     signal clicked()
 
     implicitHeight: Ui.controlHeight
-    implicitWidth: text.length > 0 ? content.implicitWidth + 2 * Ui.sp(14) : Ui.controlHeight
+    implicitWidth: text.length > 0 ? content.implicitWidth + 2 * 16 : Ui.controlHeight
     opacity: enabled ? 1 : 0.4
     activeFocusOnTab: true
 
     Rectangle {
         anchors.fill: parent
-        radius: theme.radius
-        color: ma.pressed ? Ui.alpha(root.tint, theme.pressedFillAlpha)
-             : root.selected ? Ui.alpha(root.tint, theme.selectedFillAlpha)
-             : Ui.alpha(root.tint, root.kind === "normal" ? theme.normalFillAlpha : theme.normalFillAlpha * 2)
-        border.width: root.activeFocus ? Ui.line + 1 : Ui.line
-        border.color: root.kind === "normal" && !root.activeFocus ? theme.normalBorder : root.kind === "normal" ? theme.accent : root.tint
+        radius: Ui.controlRadius
+        color: root.kind === "primary" ? theme.accent
+             : root.kind === "danger" ? theme.redTint
+             : root.selected ? theme.tint
+             : root.flat ? "transparent" : theme.quiet
+        // Pressed lies over the fill, so it shows on every kind.
+        Rectangle {
+            anchors.fill: parent
+            radius: parent.radius
+            color: theme.pressed
+            visible: ma.pressed
+        }
+        // Keyboard focus: nothing else gives a button the focus.
+        Rectangle {
+            anchors.fill: parent
+            radius: parent.radius
+            color: "transparent"
+            border.width: 1
+            border.color: root.kind === "primary" ? theme.bright : theme.accent
+            visible: root.activeFocus
+        }
     }
     Row {
         id: content
         anchors.centerIn: parent
-        spacing: Ui.sp(8)
+        spacing: 8
         Icon {
             visible: root.icon.length > 0
             name: root.icon
-            color: root.kind === "normal" ? theme.foreground : root.tint
-            size: Ui.sp(18)
+            color: root.ink
+            size: 18
             anchors.verticalCenter: parent.verticalCenter
         }
         T {
             visible: root.text.length > 0
             text: root.text
-            color: root.kind === "normal" ? theme.foreground : root.tint
-            font.weight: root.kind === "normal" ? Font.Normal : Font.Bold
+            color: root.ink
+            font.weight: root.kind === "primary" ? Font.DemiBold : Font.Normal
             anchors.verticalCenter: parent.verticalCenter
         }
         Icon {
             visible: root.trailingIcon.length > 0
             name: root.trailingIcon
-            color: theme.dim
-            size: Ui.sp(14)
+            color: theme.secondary
+            size: 14
             anchors.verticalCenter: parent.verticalCenter
         }
     }
     MouseArea {
         id: ma
         anchors.fill: parent
-        // A 36 px control still gets a 44 px target.
-        anchors.margins: -Math.max(0, (44 - root.height) / 2)
         onClicked: root.clicked()
     }
     Keys.onReturnPressed: root.clicked()

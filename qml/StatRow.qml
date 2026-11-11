@@ -8,19 +8,22 @@ Item {
     property color valueColor: theme.bright
     property bool link: false
     property bool wrapValue: false
+    property int size: theme.fontText
     signal activated()
 
     implicitHeight: Math.max(Ui.sp(26), valueText.implicitHeight + Ui.sp(8))
     T {
         id: labelText
         text: root.label
-        color: theme.dim
+        color: theme.secondary
+        font.pixelSize: root.size
         anchors.left: parent.left
         anchors.verticalCenter: parent.verticalCenter
     }
     T {
         id: valueText
         text: root.value
+        font.pixelSize: root.size
         color: root.link ? theme.accent : root.valueColor
         anchors.right: linkIcon.visible ? linkIcon.left : parent.right
         anchors.rightMargin: linkIcon.visible ? Ui.sp(4) : 0
