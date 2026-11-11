@@ -1,5 +1,10 @@
 # Omactivity
 
+<p align="center">
+  <img src="mockups/ipad6-landscape-memory-inspect.png" width="560" alt="Omactivity on an iPad in landscape: the Memory tab with Firefox's processes and the inspector">
+  <img src="mockups/iphone6-long-press-menu.png" width="215" alt="Omactivity on an iPhone: the long-press menu on a process">
+</p>
+
 A touch-first task manager for Omarchy: find any process by name, see the
 process tree, sort by CPU or memory, inspect a process, and quit or
 force-quit it. It is built for tablets and phones (Omarchy A) and works
