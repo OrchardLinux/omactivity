@@ -141,6 +141,26 @@ Window {
     Shortcut { sequences: ["Return", "Enter"]; enabled: win.overlay === "actions" && !win.asking; onActivated: rowMenu.activate() }
     Item { id: keyCatcher; focus: true }
 
+    // A tap or click anywhere outside the text field being typed in ends the
+    // typing, as on a phone: the field lets go of the focus, and with it the
+    // on-screen keyboard goes. Watched from on top of everything without
+    // taking the press: what was tapped still gets it.
+    Item {
+        anchors.fill: parent
+        z: 1000
+        PointHandler {
+            onActiveChanged: {
+                if (!active || !win.typing)
+                    return
+                // The field's whole box counts as inside: its icon, its clear button.
+                var box = win.activeFocusItem.parent
+                var p = box.mapFromItem(null, point.scenePosition.x, point.scenePosition.y)
+                if (!box.contains(p))
+                    keyCatcher.forceActiveFocus()
+            }
+        }
+    }
+
     // ------------------------------------------------------------ main column
     Item {
         id: main
@@ -342,11 +362,19 @@ Window {
         Item {
             id: slide
             readonly property real restY: win.narrow ? toolbar.height + filterRow.height - Ui.sp(6) : Math.round(win.height * 0.34)
+            // Slides only when it opens, closes or springs back from a drag. Its
+            // place also follows the window's size, and a window that opens
+            // small and is then maximized (as on the tablet) would otherwise
+            // show the closed sheet sliding down through it.
+            property bool sliding: false
+            function slideNow() { sliding = true; slideEnd.restart() }
+            Timer { id: slideEnd; interval: 260; onTriggered: slide.sliding = false }
+            Connections { target: inspectSheet; function onShownChanged() { slide.slideNow() } }
             width: parent.width
             height: parent.height - restY
             y: inspectSheet.shown ? restY : parent.height
             Behavior on y {
-                enabled: !handleMa.drag.active
+                enabled: slide.sliding && !handleMa.drag.active
                 NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
             }
             Loader {
@@ -381,6 +409,7 @@ Window {
                     drag.minimumY: slide.restY
                     drag.maximumY: inspectSheet.height
                     onReleased: {
+                        slide.slideNow()
                         if (slide.y > slide.restY + Ui.sp(80))
                             win.closeInspector()
                         slide.y = Qt.binding(() => inspectSheet.shown ? slide.restY : inspectSheet.height)
